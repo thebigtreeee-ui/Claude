@@ -1,0 +1,354 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="Tool" referent="RBX0">
+    <Properties>
+      <string name="Name">IceBeam</string>
+      <string name="ToolTip">Ice Beam</string>
+      <bool name="RequiresHandle">false</bool>
+      <bool name="CanBeDropped">false</bool>
+    </Properties>
+    <Item class="RemoteEvent" referent="RBX1">
+      <Properties>
+        <string name="Name">FireBeam</string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="RBX2">
+      <Properties>
+        <string name="Name">IceBeamServer</string>
+        <ProtectedString name="Source"><![CDATA[-- Ice Beam (server): builds the beam everyone sees, deals damage and chills whatever it hits.
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local tool = script.Parent
+local remote = tool:WaitForChild("FireBeam")
+
+-- Tuning
+local RANGE = 120
+local DAMAGE = 25
+local COOLDOWN = 1.2
+local SLOW_FACTOR = 0.35 -- chilled targets move at 35% speed
+local SLOW_TIME = 2
+local GROW_TIME = 0.12
+local HOLD_TIME = 0.35
+local FADE_TIME = 0.25
+
+-- Palette
+local ICE_CORE = Color3.fromRGB(225, 250, 255)
+local ICE_GLOW = Color3.fromRGB(120, 210, 255)
+local ICE_DEEP = Color3.fromRGB(70, 150, 230)
+local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
+
+local lastFire = 0
+
+local effects = workspace:FindFirstChild("IceBeamEffects")
+if not effects then
+	effects = Instance.new("Folder")
+	effects.Name = "IceBeamEffects"
+	effects.Parent = workspace
+end
+
+local function makePart(props)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	for key, value in props do
+		part[key] = value
+	end
+	return part
+end
+
+local function tween(instance, time, goal, style)
+	local info = TweenInfo.new(time, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local t = TweenService:Create(instance, info, goal)
+	t:Play()
+	return t
+end
+
+local function fadeOut(part, time)
+	tween(part, time, { Transparency = 1 })
+	Debris:AddItem(part, time + 0.1)
+end
+
+local function addLight(part, brightness, range)
+	local light = Instance.new("PointLight")
+	light.Color = ICE_GLOW
+	light.Brightness = brightness
+	light.Range = range
+	light.Parent = part
+	return light
+end
+
+local function burst(position, count, speed)
+	local holder = makePart({
+		Name = "IceBurst",
+		Size = Vector3.new(0.2, 0.2, 0.2),
+		Transparency = 1,
+		CFrame = CFrame.new(position),
+	})
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = SPARKLE
+	emitter.Color = ColorSequence.new(ICE_CORE, ICE_GLOW)
+	emitter.LightEmission = 1
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.7),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Transparency = NumberSequence.new(0, 1)
+	emitter.Lifetime = NumberRange.new(0.4, 0.9)
+	emitter.Speed = NumberRange.new(speed * 0.5, speed)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Drag = 4
+	emitter.Acceleration = Vector3.new(0, -12, 0)
+	emitter.Rate = 0
+	emitter.Parent = holder
+	holder.Parent = effects
+	emitter:Emit(count)
+	Debris:AddItem(holder, 1.5)
+	return holder
+end
+
+-- A cluster of ice spikes that bursts out of the surface the beam hit, then shatters.
+local function crystalCluster(position, normal)
+	local base = CFrame.lookAt(position, position + normal) * CFrame.Angles(-math.pi / 2, 0, 0)
+	for _ = 1, 7 do
+		local width = 0.5 + math.random() * 0.6
+		local height = 2 + math.random() * 2.5
+		local tilt = base
+			* CFrame.Angles((math.random() - 0.5) * 1.2, math.random() * math.pi * 2, (math.random() - 0.5) * 1.2)
+		local spike = makePart({
+			Name = "IceSpike",
+			Material = Enum.Material.Ice,
+			Color = ICE_GLOW:Lerp(ICE_DEEP, math.random()),
+			Transparency = 0.1,
+			Size = Vector3.new(width, 0.1, width),
+			CFrame = tilt,
+		})
+		spike.Parent = effects
+		tween(spike, 0.15, {
+			Size = Vector3.new(width, height, width),
+			CFrame = tilt * CFrame.new(0, height * 0.3, 0),
+		}, Enum.EasingStyle.Back)
+		task.delay(1.5, function()
+			tween(spike, 0.35, { Size = Vector3.new(0.1, 0.1, 0.1), Transparency = 1 })
+			Debris:AddItem(spike, 0.5)
+		end)
+	end
+end
+
+local function chill(model, humanoid)
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root or humanoid:GetAttribute("IceChilled") then
+		return
+	end
+	humanoid:SetAttribute("IceChilled", true)
+	local originalSpeed = humanoid.WalkSpeed
+	humanoid.WalkSpeed = originalSpeed * SLOW_FACTOR
+
+	local casing = Instance.new("Part")
+	casing.Name = "IceCasing"
+	casing.Material = Enum.Material.Ice
+	casing.Color = ICE_GLOW
+	casing.Transparency = 0.45
+	casing.Size = Vector3.new(4, 5.5, 4)
+	casing.CanCollide = false
+	casing.CanQuery = false
+	casing.CanTouch = false
+	casing.Massless = true
+	casing.CFrame = root.CFrame
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = casing
+	weld.Part1 = root
+	weld.Parent = casing
+	casing.Parent = model
+
+	task.delay(SLOW_TIME, function()
+		if humanoid.Parent then
+			humanoid.WalkSpeed = originalSpeed
+			humanoid:SetAttribute("IceChilled", nil)
+		end
+		if casing.Parent then
+			burst(casing.Position, 25, 14)
+			fadeOut(casing, 0.2)
+		end
+	end)
+end
+
+local function fireBeam(origin, hitPosition, hitNormal)
+	local length = (hitPosition - origin).Magnitude
+	local look = CFrame.lookAt(origin, hitPosition)
+	local alongX = CFrame.Angles(0, math.pi / 2, 0) -- cylinders run along their X axis
+
+	local function segment(len)
+		return look * CFrame.new(0, 0, -len / 2) * alongX
+	end
+
+	-- Bright core and a shimmering outer shell that both grow from the hand to the target
+	local core = makePart({
+		Name = "IceBeamCore",
+		Shape = Enum.PartType.Cylinder,
+		Material = Enum.Material.Neon,
+		Color = ICE_CORE,
+		Size = Vector3.new(0.05, 0.5, 0.5),
+		CFrame = segment(0.05),
+	})
+	local shell = makePart({
+		Name = "IceBeamShell",
+		Shape = Enum.PartType.Cylinder,
+		Material = Enum.Material.ForceField,
+		Color = ICE_GLOW,
+		Size = Vector3.new(0.05, 1.4, 1.4),
+		CFrame = segment(0.05),
+	})
+	core.Parent = effects
+	shell.Parent = effects
+	tween(core, GROW_TIME, { Size = Vector3.new(length, 0.5, 0.5), CFrame = segment(length) }, Enum.EasingStyle.Linear)
+	tween(shell, GROW_TIME, { Size = Vector3.new(length, 1.4, 1.4), CFrame = segment(length) }, Enum.EasingStyle.Linear)
+
+	-- Soft glow ribbon along the beam
+	local anchor = makePart({ Name = "IceBeamAnchor", Size = Vector3.new(0.2, 0.2, 0.2), Transparency = 1, CFrame = look })
+	local a0 = Instance.new("Attachment")
+	a0.Parent = anchor
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, 0, -length)
+	a1.Parent = anchor
+	local glow = Instance.new("Beam")
+	glow.Attachment0 = a0
+	glow.Attachment1 = a1
+	glow.Color = ColorSequence.new(ICE_GLOW)
+	glow.LightEmission = 1
+	glow.FaceCamera = true
+	glow.Width0 = 2.4
+	glow.Width1 = 2.4
+	glow.Transparency = NumberSequence.new(0.55, 0.75)
+	glow.Parent = anchor
+	addLight(anchor, 4, 12)
+	anchor.Parent = effects
+
+	-- Ice shards spiralling around the beam, appearing as the beam passes them
+	local shards = {}
+	for distance = 2, length - 1, 2.5 do
+		local angle = distance * 0.9
+		local shard = makePart({
+			Name = "IceShard",
+			Material = Enum.Material.Ice,
+			Color = ICE_GLOW:Lerp(ICE_DEEP, math.random() * 0.6),
+			Transparency = 0.15,
+			Size = Vector3.new(0.35, 0.35, 1.4),
+			CFrame = look
+				* CFrame.new(0, 0, -distance)
+				* CFrame.Angles(0, 0, angle)
+				* CFrame.new(0, 0.9, 0)
+				* CFrame.Angles(math.rad(-25), 0, 0),
+		})
+		table.insert(shards, shard)
+		task.delay(GROW_TIME * distance / length, function()
+			shard.Parent = effects
+		end)
+	end
+
+	-- Impact
+	task.delay(GROW_TIME, function()
+		burst(hitPosition, 40, 20)
+		local flash = burst(hitPosition, 0, 1)
+		addLight(flash, 6, 18)
+		if hitNormal then
+			crystalCluster(hitPosition, hitNormal)
+		end
+	end)
+
+	-- Fade everything out after the hold
+	task.delay(GROW_TIME + HOLD_TIME, function()
+		fadeOut(core, FADE_TIME)
+		fadeOut(shell, FADE_TIME)
+		for _, shard in shards do
+			fadeOut(shard, FADE_TIME)
+		end
+		tween(glow, FADE_TIME, { Width0 = 0, Width1 = 0 })
+		Debris:AddItem(anchor, FADE_TIME + 0.1)
+	end)
+end
+
+local function getHand(character)
+	return character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+end
+
+remote.OnServerEvent:Connect(function(player, target)
+	local character = tool.Parent
+	if not character or Players:GetPlayerFromCharacter(character) ~= player then
+		return
+	end
+	if typeof(target) ~= "Vector3" then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local hand = getHand(character)
+	if not humanoid or humanoid.Health <= 0 or not hand then
+		return
+	end
+
+	local now = os.clock()
+	if now - lastFire < COOLDOWN then
+		return
+	end
+
+	local origin = hand.Position
+	local offset = target - origin
+	if not (offset.Magnitude >= 0.1) then -- also rejects NaN
+		return
+	end
+	lastFire = now
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, effects }
+	local direction = offset.Unit * RANGE
+	local result = workspace:Raycast(origin, direction, params)
+
+	local hitPosition = result and result.Position or origin + direction
+	fireBeam(origin, hitPosition, result and result.Normal)
+
+	if result then
+		local model = result.Instance:FindFirstAncestorOfClass("Model")
+		local victim = model and model:FindFirstChildOfClass("Humanoid")
+		if victim and model ~= character and victim.Health > 0 then
+			victim:TakeDamage(DAMAGE)
+			chill(model, victim)
+		end
+	end
+end)
+]]></ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="LocalScript" referent="RBX3">
+      <Properties>
+        <string name="Name">IceBeamClient</string>
+        <ProtectedString name="Source"><![CDATA[-- Ice Beam (client): click while holding the tool to fire toward the mouse.
+local Players = game:GetService("Players")
+
+local tool = script.Parent
+local remote = tool:WaitForChild("FireBeam")
+local mouse = Players.LocalPlayer:GetMouse()
+
+local COOLDOWN = 1.2
+local lastFire = 0
+
+tool.Activated:Connect(function()
+	local now = os.clock()
+	if now - lastFire < COOLDOWN then
+		return
+	end
+	lastFire = now
+	remote:FireServer(mouse.Hit.Position)
+end)
+]]></ProtectedString>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>
