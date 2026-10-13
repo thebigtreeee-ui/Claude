@@ -135,11 +135,11 @@ def blast_electric(col):
 
     bm = bmesh.new()
     blob(bm, Vector(), 0.5)
-    finish(bm, "Core", col, material("ElecBolt", rgb(230, 250, 255), 8))
+    finish(bm, "Core", col, material("ElecBolt", rgb(245, 230, 255), 8))
 
     bm = bmesh.new()
     blob(bm, Vector(), 1.0, lambda d: 1 + 0.06 * math.sin(d.x * 9) * math.sin(d.y * 9) * math.sin(d.z * 9), segments=32, rings=20)
-    finish(bm, "Sheath", col, material("ElecSheath", rgb(90, 150, 255), 0.6, alpha=0.15))
+    finish(bm, "Sheath", col, material("ElecSheath", rgb(140, 60, 235), 0.6, alpha=0.15))
 
     bm = bmesh.new()
     for _ in range(9):  # arcs leaping between two points on the shell
@@ -156,7 +156,7 @@ def blast_electric(col):
             pts += jagged(p, q, 1, 0.35, rng)[:-1]
         pts.append(curve[-1])
         tube(bm, pts, [0.055] * len(pts), sides=5)
-    finish(bm, "Bolt", col, material("ElecBolt", rgb(230, 250, 255), 8), smooth=False)
+    finish(bm, "Bolt", col, material("ElecBolt", rgb(245, 230, 255), 8), smooth=False)
 
     bm = bmesh.new()
     for _ in range(7):
@@ -168,7 +168,7 @@ def blast_electric(col):
         end2 = fork + Vector((rng.uniform(-0.8, 0.8), -rng.uniform(0.6, 1.5), rng.uniform(-0.8, 0.8)))
         pts2 = jagged(fork, end2, 2, 0.3, rng)
         tube(bm, pts2, [0.035 * (1 - i / (len(pts2) - 1)) + 0.008 for i in range(len(pts2))], sides=4)
-    finish(bm, "Branches", col, material("ElecBranch", rgb(120, 190, 255), 5), smooth=False)
+    finish(bm, "Branches", col, material("ElecBranch", rgb(130, 80, 255), 1.2), smooth=False)
 
 
 def blast_nature(col):

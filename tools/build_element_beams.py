@@ -307,7 +307,7 @@ def build_electric(col):
         pts = jagged(axis_point(0), axis_point(LENGTH), 6, 0.035, random.Random(33 + seed))
         mains.append(pts)
         tube(bm, pts, [radius] * len(pts), sides=6)
-    finish(bm, "Bolt", col, material("ElecBolt", rgb(230, 250, 255), 8), smooth=False)
+    finish(bm, "Bolt", col, material("ElecBolt", rgb(245, 230, 255), 8), smooth=False)
 
     bm = bmesh.new()
     for _ in range(14):
@@ -321,14 +321,14 @@ def build_electric(col):
         end2 = fork + (d + Vector((rng.uniform(-1, 1), 0.3, rng.uniform(-1, 1)))).normalized() * rng.uniform(0.8, 1.8)
         pts2 = jagged(fork, end2, 2, 0.3, rng)
         tube(bm, pts2, [0.04 * (1 - i / (len(pts2) - 1)) + 0.008 for i in range(len(pts2))], sides=4)
-    finish(bm, "Branches", col, material("ElecBranch", rgb(120, 190, 255), 5), smooth=False)
+    finish(bm, "Branches", col, material("ElecBranch", rgb(130, 80, 255), 1.2), smooth=False)
 
     bm = bmesh.new()
     steps = 120
     pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
     rads = [0.75 + 0.2 * math.sin(i / steps * 2 * math.pi * 10) ** 2 for i in range(steps + 1)]
     tube(bm, pts, rads, sides=16)
-    finish(bm, "Sheath", col, material("ElecSheath", rgb(90, 150, 255), 0.6, alpha=0.15))
+    finish(bm, "Sheath", col, material("ElecSheath", rgb(140, 60, 235), 0.6, alpha=0.15))
 
 
 def build_nature(col):

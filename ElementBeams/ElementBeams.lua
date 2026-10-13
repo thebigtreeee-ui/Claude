@@ -41,9 +41,9 @@ ElementBeams.Styles = {
 	},
 	Electric = {
 		Spin = 0,
-		Bolt = style(230, 250, 255, Neon),
-		Branches = style(120, 190, 255, Neon),
-		Sheath = style(90, 150, 255, Enum.Material.ForceField, 0),
+		Bolt = style(245, 230, 255, Neon), -- white-hot lilac
+		Branches = style(130, 80, 255, Neon), -- violet
+		Sheath = style(140, 60, 235, Enum.Material.ForceField, 0), -- deep purple plasma
 	},
 	Nature = {
 		Spin = 3,

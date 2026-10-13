@@ -8,7 +8,7 @@ One Blender-made 3D beam per Eternium element, plus a module that drops them int
 |---|---|---|
 | **Fire** | No solid tube: a white-hot core wrapped in five twisting flame tongues, with flame wisps streaming backwards | Core, Flames, Wisps |
 | **Ice** | A crystalline spear of overlapping hexagonal crystals, with shards jutting forward | Core, Crystal, Shards |
-| **Electric** | A thick jagged main bolt with a thinner one twisting round it, forking branches and a pulsing plasma sheath | Bolt, Branches, Sheath |
+| **Electric** | A thick white-hot jagged main bolt with a thinner one twisting round it, violet forking branches and a pulsing purple plasma sheath | Bolt, Branches, Sheath |
 | **Nature** | Three thorned vines braiding around a living green core, with leaves, curling tendrils and blossoms | Core, Vines, Leaves, Blossoms |
 | **Void** | A light-eating black core inside a violet event horizon, tendrils spiralling inward, orbit rings and debris | Core, Horizon, Tendrils, Rings, Debris |
 | **Rift** | A faceted, star-shaped crystal fracture with a glowing fault line through it, caged by angular cyan crack lines, with solid glass shards and cracked hexagonal gates | Core, Tear, EdgeMagenta, EdgeCyan, Fragments, Gates |
