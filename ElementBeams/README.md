@@ -11,7 +11,7 @@ One Blender-made 3D beam per Eternium element, plus a module that drops them int
 | **Electric** | Two intertwined jagged bolts, forking branches and a pulsing plasma sheath | Bolt, Branches, Sheath |
 | **Nature** | Three thorned vines braiding around a living green core, with leaves, curling tendrils and blossoms | Core, Vines, Leaves, Blossoms |
 | **Void** | A light-eating black core inside a violet event horizon, tendrils spiralling inward, orbit rings and debris | Core, Horizon, Tendrils, Rings, Debris |
-| **Rift** | A twisting tear in space with offset magenta/cyan edges, broken-glass fragments and cracked hexagonal gates | Tear, EdgeMagenta, EdgeCyan, Fragments, Gates |
+| **Rift** | A twisting tear in space with offset indigo/cyan edges, broken-glass fragments and cracked hexagonal gates | Tear, EdgeMagenta, EdgeCyan, Fragments, Gates |
 | **Wind** | A tightly wrung three-strand core of air, airflow streaks spiralling round it, translucent shockwave rings and crescent wind blades | Core, Streams, Rings, Blades |
 
 Every model is 24 units long and stays well under Roblox's 20k-triangle limit per part.

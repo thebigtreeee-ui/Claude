@@ -58,11 +58,11 @@ ElementBeams.Styles = {
 	},
 	Rift = {
 		Spin = 2,
-		Tear = style(255, 235, 250, Neon),
-		EdgeMagenta = style(255, 50, 200, Neon),
+		Tear = style(235, 250, 255, Neon),
+		EdgeMagenta = style(90, 70, 255, Neon), -- indigo now; the part keeps its original name
 		EdgeCyan = style(50, 230, 255, Neon),
-		Fragments = style(220, 200, 255, Enum.Material.Glass, 0.3),
-		Gates = style(200, 90, 255, Neon),
+		Fragments = style(200, 225, 255, Enum.Material.Glass, 0.3),
+		Gates = style(110, 120, 255, Neon),
 	},
 	Wind = {
 		Spin = 12, -- the fastest roll of the lot: it's a cyclone

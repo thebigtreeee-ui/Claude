@@ -441,7 +441,7 @@ def build_void(col):
 
 
 def build_rift(col):
-    """A tear in space: a jagged twisting crack with chromatic magenta/cyan edges, broken glass and gate frames."""
+    """A tear in space: a jagged twisting crack with chromatic indigo/cyan edges, broken glass and gate frames."""
     rng = random.Random(66)
     steps = 90
     pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
@@ -463,11 +463,12 @@ def build_rift(col):
 
     bm = bmesh.new()
     sweep(bm, pts, tear_profiles(0.75, 0.06, 0))
-    finish(bm, "Tear", col, material("RiftTear", rgb(255, 235, 250), 7), smooth=False)
+    finish(bm, "Tear", col, material("RiftTear", rgb(235, 250, 255), 7), smooth=False)
 
     bm = bmesh.new()
     sweep(bm, pts, tear_profiles(1.0, 0.03, 0.06))
-    finish(bm, "EdgeMagenta", col, material("RiftMagenta", rgb(255, 50, 200), 3.5), smooth=False)
+    # Still named EdgeMagenta (now indigo) so already-imported models keep working.
+    finish(bm, "EdgeMagenta", col, material("RiftIndigo", rgb(90, 70, 255), 3.5), smooth=False)
 
     bm = bmesh.new()
     sweep(bm, pts, tear_profiles(1.0, 0.03, -0.06))
@@ -479,7 +480,7 @@ def build_rift(col):
         a = rng.uniform(0, 2 * math.pi)
         r = rng.uniform(0.9, 2.1)
         rock(bm, rng, Vector((r * math.cos(a), y, r * math.sin(a))), rng.uniform(0.15, 0.4), squash=(1.4, 1.0, 0.12), jitter=0.5)
-    finish(bm, "Fragments", col, material("RiftGlass", rgb(220, 200, 255), 0.5, glass=True), smooth=False)
+    finish(bm, "Fragments", col, material("RiftGlass", rgb(200, 225, 255), 0.5, glass=True), smooth=False)
 
     bm = bmesh.new()
     for k, y in enumerate((5, 12, 19)):
@@ -492,7 +493,7 @@ def build_rift(col):
             gap = (b - a) * 0.08
             sq = [(0.07, 0.07), (-0.07, 0.07), (-0.07, -0.07), (0.07, -0.07)]
             sweep(bm, [a + gap, b - gap], [sq, sq])
-    finish(bm, "Gates", col, material("RiftGate", rgb(200, 90, 255), 3), smooth=False)
+    finish(bm, "Gates", col, material("RiftGate", rgb(110, 120, 255), 3), smooth=False)
 
 
 def build_wind(col):
