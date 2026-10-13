@@ -62,7 +62,8 @@ ElementBeams.Styles = {
 	},
 	Rift = {
 		Spin = 2,
-		Tear = style(220, 255, 255, Neon),
+		Core = style(220, 255, 255, Neon),
+		Tear = style(170, 245, 250, Enum.Material.Glass, 0.15),
 		EdgeMagenta = style(40, 220, 230, Neon), -- cyan now; the part keeps its original name
 		EdgeCyan = style(40, 220, 230, Neon),
 		Fragments = style(190, 245, 245, Enum.Material.Glass, 0.3),

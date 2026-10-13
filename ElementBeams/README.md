@@ -8,10 +8,10 @@ One Blender-made 3D beam per Eternium element, plus a module that drops them int
 |---|---|---|
 | **Fire** | No solid tube: a white-hot core wrapped in five twisting flame tongues, with flame wisps streaming backwards | Core, Flames, Wisps |
 | **Ice** | A crystalline spear of overlapping hexagonal crystals, with shards jutting forward | Core, Crystal, Shards |
-| **Electric** | Two intertwined jagged bolts, forking branches and a pulsing plasma sheath | Bolt, Branches, Sheath |
+| **Electric** | A thick jagged main bolt with a thinner one twisting round it, forking branches and a pulsing plasma sheath | Bolt, Branches, Sheath |
 | **Nature** | Three thorned vines braiding around a living green core, with leaves, curling tendrils and blossoms | Core, Vines, Leaves, Blossoms |
 | **Void** | A light-eating black core inside a violet event horizon, tendrils spiralling inward, orbit rings and debris | Core, Horizon, Tendrils, Rings, Debris |
-| **Rift** | A twisting tear in space with glowing cyan edges, broken-glass fragments and cracked hexagonal gates | Tear, EdgeMagenta, EdgeCyan, Fragments, Gates |
+| **Rift** | A faceted, star-shaped crystal fracture with a glowing fault line through it, caged by angular cyan crack lines, with solid glass shards and cracked hexagonal gates | Core, Tear, EdgeMagenta, EdgeCyan, Fragments, Gates |
 | **Wind** | A tightly wrung three-strand core of air, airflow streaks spiralling round it, translucent shockwave rings and crescent wind blades | Core, Streams, Rings, Blades |
 
 Every model is 24 units long and stays well under Roblox's 20k-triangle limit per part.

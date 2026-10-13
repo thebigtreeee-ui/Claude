@@ -298,15 +298,15 @@ def build_ice(col):
 
 
 def build_electric(col):
-    """Two intertwined jagged bolts, forking branches, and a pulsing plasma sheath."""
+    """A thick jagged main bolt with a thinner one twisting round it, forking branches, and a pulsing plasma sheath."""
     rng = random.Random(33)
 
     bm = bmesh.new()
     mains = []
-    for seed, radius in ((0, 0.14), (1, 0.09)):
+    for seed, radius in ((0, 0.3), (1, 0.15)):
         pts = jagged(axis_point(0), axis_point(LENGTH), 6, 0.035, random.Random(33 + seed))
         mains.append(pts)
-        tube(bm, pts, [radius] * len(pts), sides=5)
+        tube(bm, pts, [radius] * len(pts), sides=6)
     finish(bm, "Bolt", col, material("ElecBolt", rgb(230, 250, 255), 8), smooth=False)
 
     bm = bmesh.new()
@@ -326,7 +326,7 @@ def build_electric(col):
     bm = bmesh.new()
     steps = 120
     pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
-    rads = [0.55 + 0.18 * math.sin(i / steps * 2 * math.pi * 10) ** 2 for i in range(steps + 1)]
+    rads = [0.75 + 0.2 * math.sin(i / steps * 2 * math.pi * 10) ** 2 for i in range(steps + 1)]
     tube(bm, pts, rads, sides=16)
     finish(bm, "Sheath", col, material("ElecSheath", rgb(90, 150, 255), 0.6, alpha=0.15))
 
@@ -441,57 +441,84 @@ def build_void(col):
 
 
 def build_rift(col):
-    """A tear in space: a jagged twisting crack with glowing cyan edges, broken glass and gate frames."""
+    """A fracture through space: a faceted star-shaped crystal core caged by angular crack lines,
+    with solid glass shards and cracked hex gates around it."""
     rng = random.Random(66)
-    steps = 90
+    steps = 72
+    points = 6
     pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
-    halves = [
-        tuple(0.3 + 0.45 * abs(n3(p * 0.35, side)) + (rng.uniform(0.3, 0.6) if rng.random() < 0.12 else 0) for side in (1, 2))
-        for p in pts
-    ]
-    for i in (0, steps):
-        halves[i] = (0.05, 0.05)
+    spikes = [[rng.uniform(0.75, 1.15) for _ in range(points)] for _ in pts]
 
-    def tear_profiles(scale, thick, spin_offset):
-        profiles = []
-        for i, (l, r) in enumerate(halves):
-            ang = spin_offset + (i / steps) * math.pi * 0.75  # slow twist down the length
-            c, s = math.cos(ang), math.sin(ang)
-            raw = [(l * scale, 0), (0, thick), (-r * scale, 0), (0, -thick)]
-            profiles.append([(x * c - y * s, x * s + y * c) for x, y in raw])
-        return profiles
-
-    bm = bmesh.new()
-    sweep(bm, pts, tear_profiles(0.75, 0.06, 0))
-    finish(bm, "Tear", col, material("RiftTear", rgb(220, 255, 255), 7), smooth=False)
+    def star(i, scale):
+        """Irregular six-point star cross-section, slowly turning down the beam so it reads as solid."""
+        t = i / steps
+        taper = min(1.0, t * 10, (1 - t) * 10) * 0.6 + 0.4 * min(1.0, t * 10, (1 - t) * 10) ** 2
+        turn = t * math.pi * 1.5
+        pulse = 1 + 0.2 * n3(pts[i] * 0.3, 7)
+        prof = []
+        for k in range(points):
+            a = turn + 2 * math.pi * k / points
+            outer = 0.62 * spikes[i][k] * pulse * scale * taper + 0.02
+            inner = 0.24 * pulse * scale * taper + 0.02
+            prof.append((outer * math.cos(a), outer * math.sin(a)))
+            b = a + math.pi / points
+            prof.append((inner * math.cos(b), inner * math.sin(b)))
+        return prof
 
     bm = bmesh.new()
-    sweep(bm, pts, tear_profiles(1.0, 0.03, 0.06))
-    # Still named EdgeMagenta (now cyan) so already-imported models keep working.
+    sweep(bm, pts, [star(i, 1.0) for i in range(steps + 1)])
+    finish(bm, "Tear", col, material("RiftCrystal", rgb(170, 245, 250), 0.8, glass=True), smooth=False)
+
+    bm = bmesh.new()  # the glowing fault line running through the crystal
+    line = jagged(axis_point(0), axis_point(LENGTH), 5, 0.01, random.Random(67))
+    tube(bm, line, [0.14] * (len(line) - 1) + [0.0], sides=6)
+    finish(bm, "Core", col, material("RiftCore", rgb(220, 255, 255), 8), smooth=False)
+
+    def cracks(bm, direction, seed):
+        crng = random.Random(seed)
+        for k in range(3):
+            phase = 2 * math.pi * k / 3 + crng.uniform(-0.3, 0.3)
+            path = []
+            for i in range(19):  # few, long, straight segments: geometric cracks, not lightning
+                t = i / 18
+                a = phase + direction * t * 2 * math.pi * 1.5
+                r = 0.95 + crng.uniform(-0.18, 0.18)
+                path.append(Vector((r * math.cos(a), t * LENGTH, r * math.sin(a))))
+            sq = [(0.055, 0.055), (-0.055, 0.055), (-0.055, -0.055), (0.055, -0.055)]
+            for p, q in zip(path, path[1:]):
+                sweep(bm, [p, q], [sq, sq])
+
+    bm = bmesh.new()
+    cracks(bm, 1, 61)
+    # Still named EdgeMagenta (cyan, like EdgeCyan) so the style table and older imports keep matching.
     finish(bm, "EdgeMagenta", col, material("RiftCyan", rgb(40, 220, 230), 3.5), smooth=False)
 
     bm = bmesh.new()
-    sweep(bm, pts, tear_profiles(1.0, 0.03, -0.06))
+    cracks(bm, -1, 62)
     finish(bm, "EdgeCyan", col, material("RiftCyan", rgb(40, 220, 230), 3.5), smooth=False)
 
     bm = bmesh.new()
-    for _ in range(40):
+    for _ in range(46):
         y = rng.uniform(0.5, LENGTH - 0.5)
         a = rng.uniform(0, 2 * math.pi)
-        r = rng.uniform(0.9, 2.1)
-        rock(bm, rng, Vector((r * math.cos(a), y, r * math.sin(a))), rng.uniform(0.15, 0.4), squash=(1.4, 1.0, 0.12), jitter=0.5)
+        r = rng.uniform(1.25, 2.3)
+        base = Vector((r * math.cos(a), y, r * math.sin(a)))
+        d = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized()
+        size = rng.uniform(0.35, 0.8)
+        crystal(bm, base - d * size / 2, base + d * size / 2, size * rng.uniform(0.25, 0.4), rng.choice((3, 4)), rng.uniform(0, 1))
     finish(bm, "Fragments", col, material("RiftGlass", rgb(190, 245, 245), 0.5, glass=True), smooth=False)
 
     bm = bmesh.new()
-    for k, y in enumerate((5, 12, 19)):
-        spin = k * 0.4
-        corners = [axis_point(y) + Vector((math.cos(spin + j * math.pi / 3), 0, math.sin(spin + j * math.pi / 3))) * 1.7 for j in range(6)]
+    for k, y in enumerate((3.5, 9.5, 15.5, 21.5)):
+        spin = k * 0.5
+        tilt = Matrix.Rotation(math.radians(rng.uniform(-12, 12)), 3, "X") @ Matrix.Rotation(math.radians(rng.uniform(-12, 12)), 3, "Z")
+        corners = [axis_point(y) + tilt @ (Vector((math.cos(spin + j * math.pi / 3), 0, math.sin(spin + j * math.pi / 3))) * 1.75) for j in range(6)]
         for j in range(6):
             if rng.random() < 0.25:
                 continue  # broken segments: the gate is cracking apart
             a, b = corners[j], corners[(j + 1) % 6]
             gap = (b - a) * 0.08
-            sq = [(0.07, 0.07), (-0.07, 0.07), (-0.07, -0.07), (0.07, -0.07)]
+            sq = [(0.1, 0.1), (-0.1, 0.1), (-0.1, -0.1), (0.1, -0.1)]
             sweep(bm, [a + gap, b - gap], [sq, sq])
     finish(bm, "Gates", col, material("RiftGate", rgb(30, 200, 200), 3), smooth=False)
 
