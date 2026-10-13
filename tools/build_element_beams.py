@@ -206,9 +206,9 @@ def finish(bm, name, collection, mat, smooth=True):
     return obj
 
 
-def markers(collection):
+def markers(collection, start_y=0.0, end_y=LENGTH):
     mat = material("Marker", (1, 0, 1))
-    for name, y in (("Start", 0.0), ("End", LENGTH)):
+    for name, y in (("Start", start_y), ("End", end_y)):
         bm = bmesh.new()
         bmesh.ops.create_cube(bm, size=0.1, matrix=Matrix.Translation((0, y, 0)))
         obj = finish(bm, name, collection, mat, smooth=False)
@@ -592,15 +592,15 @@ def export(col, path):
     )
 
 
-def render(element, path):
+def render(element, path, camera=(17.0, 7.0, 6.0), target=(0, 12.0, 0)):
     scene = bpy.context.scene
     for col in bpy.data.collections:
         hidden = col.name != element
         for obj in col.objects:
             obj.hide_render = hidden or obj.name.startswith(("Start", "End"))
     cam = scene.camera
-    cam.location = (17.0, 7.0, 6.0)
-    direction = Vector((0, 12.0, 0)) - cam.location
+    cam.location = camera
+    direction = Vector(target) - cam.location
     cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
     scene.render.filepath = str(path)
     bpy.ops.render.render(write_still=True)
@@ -655,4 +655,5 @@ def main():
     print(f"Wrote beams to {OUT}")
 
 
-main()
+if __name__ == "__main__":
+    main()

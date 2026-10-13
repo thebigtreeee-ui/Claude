@@ -1,17 +1,21 @@
--- ElementBeams (ModuleScript in ReplicatedStorage): aims, stretches and colours the Blender beam models.
+-- ElementBeams (ModuleScript in ReplicatedStorage): aims and colours the Blender beam and blast models.
 --
--- Expects a folder ReplicatedStorage.ElementBeamModels holding the imported models, named after the
--- element ("Fire") or the file ("FireBeam"). Each model keeps the tiny Start/End marker parts from
--- Blender; they tell this module which way the beam points, however the import was scaled or rotated.
+-- Expects ReplicatedStorage.ElementBeamModels (beams) and ReplicatedStorage.ElementBlastModels (blasts),
+-- holding the imported models named after the element ("Fire") or the file ("FireBeam", "FireBlast").
+-- Each model keeps the tiny Start/End marker parts from Blender; they tell this module which way the
+-- model points, however the import was scaled or rotated.
 --
 --   local ElementBeams = require(game.ReplicatedStorage.ElementBeams)
---   ElementBeams.fire("Fire", handPosition, hitPosition)
+--   ElementBeams.fire("Fire", handPosition, hitPosition)   -- beam
+--   ElementBeams.blast("Fire", handPosition, hitPosition)  -- projectile
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
-local DESIGN_LENGTH = 24 -- studs from Start to End after normalising; thickness is designed around this
+local DESIGN_LENGTH = 24 -- beam: studs from Start to End after normalising; thickness is designed around this
+local BLAST_LENGTH = 8 -- blast: studs from tail (Start) to nose (End) at size 1
+local BLAST_CORE = 0.75 -- the blast's core sits this far along from Start to End
 
 local ElementBeams = {}
 
@@ -80,8 +84,8 @@ local function markers(model)
 	return startPart, endPart
 end
 
--- Colours a template and scales it to DESIGN_LENGTH. Safe to call more than once.
-function ElementBeams.prepare(template, element)
+-- Colours a template and scales it so Start to End spans `length` studs. Safe to call more than once.
+function ElementBeams.prepare(template, element, length)
 	if template:GetAttribute("ElementBeamPrepared") then
 		return template
 	end
@@ -110,24 +114,24 @@ function ElementBeams.prepare(template, element)
 	end
 
 	local startPart, endPart = markers(template)
-	local length = (endPart.Position - startPart.Position).Magnitude
-	template:ScaleTo(template:GetScale() * DESIGN_LENGTH / length)
+	local current = (endPart.Position - startPart.Position).Magnitude
+	template:ScaleTo(template:GetScale() * (length or DESIGN_LENGTH) / current)
 	template:SetAttribute("ElementBeamPrepared", true)
 	return template
 end
 
-local function findTemplate(element)
-	local folder = ReplicatedStorage:WaitForChild("ElementBeamModels")
-	local template = folder:FindFirstChild(element) or folder:FindFirstChild(element .. "Beam")
-	assert(template, "ReplicatedStorage.ElementBeamModels has no model for " .. element)
-	return ElementBeams.prepare(template, element)
+local function findTemplate(element, folderName, suffix, length)
+	local folder = ReplicatedStorage:WaitForChild(folderName)
+	local template = folder:FindFirstChild(element) or folder:FindFirstChild(element .. suffix)
+	assert(template, "ReplicatedStorage." .. folderName .. " has no model for " .. element)
+	return ElementBeams.prepare(template, element, length)
 end
 
 -- Returns a copy of the element's beam running from origin to target. `width` scales thickness (default 1).
 -- Only the length is stretched, so the detail (flames, shards, leaves) keeps its shape across the beam's width.
 function ElementBeams.place(element, origin, target, width)
 	width = width or 1
-	local model = findTemplate(element):Clone()
+	local model = findTemplate(element, "ElementBeamModels", "Beam", DESIGN_LENGTH):Clone()
 	local startPart, endPart = markers(model)
 	local from = CFrame.lookAt(startPart.Position, endPart.Position)
 	local to = CFrame.lookAt(origin, target)
@@ -197,6 +201,51 @@ function ElementBeams.fire(element, origin, target, options)
 
 	task.delay(fadeIn + hold, fadeAll, model, fadeOut, false)
 	Debris:AddItem(model, fadeIn + hold + fadeOut + 0.1)
+	return model
+end
+
+-- Launches the element's blast from origin and flies it to target, rolling as it goes. Calls
+-- options.onArrive(target) when it gets there, then removes it. Options: speed (studs/sec, default 90),
+-- size (default 1), parent. Returns the model. Purely visual: do your hit detection as you do now.
+function ElementBeams.blast(element, origin, target, options)
+	options = options or {}
+	local speed = options.speed or 90
+	local model = findTemplate(element, "ElementBlastModels", "Blast", BLAST_LENGTH):Clone()
+	if options.size and options.size ~= 1 then
+		model:ScaleTo(model:GetScale() * options.size)
+	end
+
+	local startPart, endPart = markers(model)
+	local tail, nose = startPart.Position, endPart.Position
+	model.WorldPivot = CFrame.lookAt(tail:Lerp(nose, BLAST_CORE), nose)
+
+	local offset = target - origin
+	local distance = offset.Magnitude
+	local direction = distance > 0 and offset.Unit or Vector3.zAxis
+	local spin = (ElementBeams.Styles[element].Spin or 0) * 1.5
+	local travelled, angle = 0, 0
+	model:PivotTo(CFrame.lookAt(origin, origin + direction))
+	model.Parent = options.parent or workspace
+
+	local connection
+	connection = RunService.Heartbeat:Connect(function(dt)
+		if not model.Parent then
+			connection:Disconnect()
+			return
+		end
+		travelled = math.min(travelled + speed * dt, distance)
+		angle += spin * dt
+		local position = origin + direction * travelled
+		model:PivotTo(CFrame.lookAt(position, position + direction) * CFrame.Angles(0, 0, angle))
+		if travelled >= distance then
+			connection:Disconnect()
+			model:Destroy()
+			if options.onArrive then
+				options.onArrive(target)
+			end
+		end
+	end)
+	Debris:AddItem(model, distance / speed + 5) -- safety net if Heartbeat stops reaching it
 	return model
 end
 
