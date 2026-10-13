@@ -64,6 +64,13 @@ ElementBeams.Styles = {
 		Fragments = style(220, 200, 255, Enum.Material.Glass, 0.3),
 		Gates = style(200, 90, 255, Neon),
 	},
+	Wind = {
+		Spin = 12, -- the fastest roll of the lot: it's a cyclone
+		Core = style(235, 255, 248, Neon, 0.1),
+		Streams = style(160, 240, 215, Neon, 0.25),
+		Rings = style(150, 235, 215, Enum.Material.ForceField, 0),
+		Blades = style(215, 255, 240, Neon, 0.15),
+	},
 }
 
 local function markers(model)

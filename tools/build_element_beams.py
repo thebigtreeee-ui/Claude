@@ -47,10 +47,13 @@ def sweep(bm, points, profiles, closed=False):
     """Lofts 2D cross-sections along a path. A profile of None collapses to a point (a tip)."""
     rings = []
     for p, (_, n, b), prof in zip(points, frames(points), profiles):
-        if prof is None:
-            rings.append([bm.verts.new(p)])
-        else:
-            rings.append([bm.verts.new(p + n * x + b * y) for x, y in prof])
+        rings.append([p] if prof is None else [p + n * x + b * y for x, y in prof])
+    loft(bm, rings, closed)
+
+
+def loft(bm, rings, closed=False):
+    """Skins a series of closed cross-sections given directly as world-space point lists."""
+    rings = [[bm.verts.new(p) for p in ring] for ring in rings]
     pairs = list(zip(rings, rings[1:]))
     if closed:
         pairs.append((rings[-1], rings[0]))
@@ -92,12 +95,12 @@ def crystal(bm, base, tip, radius, sides=6, spin=0.0):
     sweep(bm, pts, [None, circle(radius, sides, spin), circle(radius * 0.85, sides, spin), None])
 
 
-def rock(bm, center, size, squash=(1, 1, 1), jitter=0.35, rot=None):
+def rock(bm, rng, center, size, squash=(1, 1, 1), jitter=0.35):
     """Faceted irregular chunk (a jittered icosphere)."""
-    rot = rot or Matrix.Rotation(random.uniform(0, 6.3), 4, Vector((random.random(), random.random(), random.random())).normalized())
+    rot = Matrix.Rotation(rng.uniform(0, 6.3), 4, Vector((rng.random(), rng.random(), rng.random())).normalized())
     geo = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=size)
     for v in geo["verts"]:
-        c = v.co * (1 + random.uniform(-jitter, jitter))
+        c = v.co * (1 + rng.uniform(-jitter, jitter))
         c = Vector((c.x * squash[0], c.y * squash[1], c.z * squash[2]))
         v.co = center + rot.to_3x3() @ c
 
@@ -389,7 +392,7 @@ def build_nature(col):
             a = 2 * math.pi * j / 5
             d = (side * math.cos(a) + up * math.sin(a)).normalized()
             leaf(bm, p + out * 0.12, (d + out * 0.6).normalized(), out, 0.32, 0.14, curl=0.4, thick=0.02)
-        rock(bm, p + out * 0.15, 0.08, jitter=0.1)
+        rock(bm, rng, p + out * 0.15, 0.08, jitter=0.1)
     finish(bm, "Blossoms", col, material("NatureBloom", rgb(255, 150, 205), 0.4, rough=0.5))
 
 
@@ -433,7 +436,7 @@ def build_void(col):
         t = rng.random()
         a = t * 2 * math.pi * 5 + rng.uniform(-0.4, 0.4)
         r = rng.uniform(0.9, 2.2)
-        rock(bm, Vector((r * math.cos(a), t * LENGTH, r * math.sin(a))), rng.uniform(0.07, 0.2), squash=(1, 1.8, 1))
+        rock(bm, rng, Vector((r * math.cos(a), t * LENGTH, r * math.sin(a))), rng.uniform(0.07, 0.2), squash=(1, 1.8, 1))
     finish(bm, "Debris", col, material("VoidDebris", rgb(25, 15, 40), rough=0.9), smooth=False)
 
 
@@ -475,7 +478,7 @@ def build_rift(col):
         y = rng.uniform(0.5, LENGTH - 0.5)
         a = rng.uniform(0, 2 * math.pi)
         r = rng.uniform(0.9, 2.1)
-        rock(bm, Vector((r * math.cos(a), y, r * math.sin(a))), rng.uniform(0.15, 0.4), squash=(1.4, 1.0, 0.12), jitter=0.5)
+        rock(bm, rng, Vector((r * math.cos(a), y, r * math.sin(a))), rng.uniform(0.15, 0.4), squash=(1.4, 1.0, 0.12), jitter=0.5)
     finish(bm, "Fragments", col, material("RiftGlass", rgb(220, 200, 255), 0.5, glass=True), smooth=False)
 
     bm = bmesh.new()
@@ -492,6 +495,73 @@ def build_rift(col):
     finish(bm, "Gates", col, material("RiftGate", rgb(200, 90, 255), 3), smooth=False)
 
 
+def build_wind(col):
+    """Air made visible: airflow streaks spiralling round a twisted core, shockwave rings and crescent wind blades."""
+    rng = random.Random(77)
+
+    def radial(a):
+        return Vector((math.cos(a), 0, math.sin(a)))
+
+    bm = bmesh.new()
+    for k in range(3):  # a tight three-strand twist, like a wrung-out rope of air
+        path = helix(0, LENGTH, 160, lambda t: 0.12, turns=9, phase=2 * math.pi * k / 3)
+        tube(bm, path, [0.1] * 160 + [0], sides=6)
+    finish(bm, "Core", col, material("WindCore", rgb(235, 255, 248), 2.5))
+
+    bm = bmesh.new()
+    for k in range(9):
+        inner = k < 3
+        y0 = 0 if inner else rng.uniform(0, LENGTH - 9)
+        y1 = LENGTH if inner else min(LENGTH, y0 + rng.uniform(7, 14))
+        r_base = 0.38 if inner else rng.uniform(0.6, 1.5)
+        turns = (y1 - y0) / (4 if inner else rng.uniform(6, 9))
+        phase = rng.uniform(0, 2 * math.pi)
+        steps = 70
+        rings = []
+        for i in range(steps + 1):
+            t = i / steps
+            a = phase + 2 * math.pi * turns * t
+            r = r_base * (1 + 0.15 * math.sin(t * math.pi * 3))
+            c = radial(a) * r + AXIS * (y0 + (y1 - y0) * t)
+            around = Vector((-math.sin(a), 0, math.cos(a)))  # flat side of the streak hugs the cylinder
+            w = (0.09 if inner else 0.2) * math.sin(math.pi * t) ** 0.8
+            rings.append([c + around * w, c + radial(a) * 0.025, c - around * w, c - radial(a) * 0.025])
+        loft(bm, rings)
+    finish(bm, "Streams", col, material("WindStream", rgb(160, 240, 215), 1.0))
+
+    bm = bmesh.new()
+    for k, y in enumerate((3.5, 9.5, 15.5, 21.5)):
+        r = 1.0 + 0.12 * k
+        # cross-section: a thin cone shell, sharp at the front, flaring and thinning towards the back
+        section = [(r, 0.0), (r + 0.12, -0.35), (r + 0.45, -1.0), (r + 0.06, -0.3)]
+        tilt = Matrix.Rotation(math.radians(rng.uniform(-6, 6)), 3, "X")
+        rings = []
+        for j in range(48):
+            a = 2 * math.pi * j / 48
+            rings.append([axis_point(y) + tilt @ (radial(a) * rr + AXIS * ay) for rr, ay in section])
+        loft(bm, rings, closed=True)
+    finish(bm, "Rings", col, material("WindRing", rgb(150, 235, 215), 0.5, alpha=0.3))
+
+    bm = bmesh.new()
+    for _ in range(7):
+        y = rng.uniform(2, LENGTH - 2)
+        r = rng.uniform(1.1, 1.8)
+        start = rng.uniform(0, 2 * math.pi)
+        span = math.radians(rng.uniform(150, 230))
+        lean = rng.uniform(1.0, 2.2)  # the blade sweeps forward as it curls round
+        steps = 40
+        rings = []
+        for i in range(steps + 1):
+            u = i / steps
+            a = start + span * u
+            c = radial(a) * r * (1 - 0.15 * u) + AXIS * (y + lean * u)
+            w = 0.38 * math.sin(math.pi * u) ** 0.6
+            th = 0.05 * math.sin(math.pi * u) ** 0.6 + 0.005
+            rings.append([c + AXIS * w, c + radial(a) * th, c - AXIS * w * 0.35, c - radial(a) * th])
+        loft(bm, rings)
+    finish(bm, "Blades", col, material("WindBlade", rgb(215, 255, 240), 1.5))
+
+
 BEAMS = {
     "Fire": build_fire,
     "Ice": build_ice,
@@ -499,6 +569,7 @@ BEAMS = {
     "Nature": build_nature,
     "Void": build_void,
     "Rift": build_rift,
+    "Wind": build_wind,
 }
 
 
