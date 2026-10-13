@@ -624,7 +624,7 @@ def render(element, path, camera=(17.0, 7.0, 6.0), target=(0, 12.0, 0)):
     for col in bpy.data.collections:
         hidden = col.name != element
         for obj in col.objects:
-            obj.hide_render = hidden or obj.name.startswith(("Start", "End"))
+            obj.hide_render = hidden or obj.name.startswith(("Start", "End", "Top"))
     cam = scene.camera
     cam.location = camera
     direction = Vector(target) - cam.location
