@@ -62,6 +62,16 @@ def radial(a):
     return Vector((math.cos(a), 0, math.sin(a)))
 
 
+def revolve(bm, center, u, v, w, section, n=48):
+    """Spins a closed (radial, axial) cross-section round axis w, with u/v spanning the ring plane."""
+    rings = []
+    for j in range(n):
+        a = 2 * math.pi * j / n
+        d = u * math.cos(a) + v * math.sin(a)
+        rings.append([center + d * rr + w * aa for rr, aa in section])
+    loft(bm, rings, closed=True)
+
+
 def spin_about_axis(p, angle):
     return Matrix.Rotation(angle, 3, "Y") @ p
 
@@ -395,6 +405,122 @@ def blast_wind(col):
     finish(bm, "Blades", col, material("WindBlade", rgb(215, 255, 240), 1.5))
 
 
+def blast_earth(col):
+    """A hurled, fractured boulder glowing from a molten heart, shedding rubble and a wake of dust."""
+    rng = random.Random(108)
+
+    bm = bmesh.new()
+    blob(bm, Vector(), 0.72, lambda d: 1 + 0.08 * n3(d * 3, 2))
+    finish(bm, "Core", col, material("EarthCore", rgb(255, 170, 70), 5))
+
+    bm = bmesh.new()  # chunks of rock clamped round the molten core, with glowing gaps between them
+    dirs = [sphere_dir(math.acos(1 - 2 * (k + 0.5) / 11), math.pi * (1 + 5 ** 0.5) * k) for k in range(11)]
+    for d in dirs:
+        rock(bm, rng, d * 0.72, rng.uniform(0.5, 0.65), squash=(1, 1, 0.75), jitter=0.4)
+    finish(bm, "Rocks", col, material("EarthRock", rgb(95, 82, 70), rough=0.95), smooth=False)
+
+    bm = bmesh.new()
+    for i in range(34):
+        t = i / 33
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.3, 1.1) * (1 - 0.5 * t)
+        rock(bm, rng, Vector((r * math.cos(a), -0.8 - t * 4.8, r * math.sin(a))), rng.uniform(0.07, 0.22) * (1 - 0.5 * t), jitter=0.4)
+    finish(bm, "Pebbles", col, material("EarthPebble", rgb(125, 108, 92), rough=0.95), smooth=False)
+
+    bm = bmesh.new()
+    steps = 40
+    pts = [Vector((0, 0.3 - 5.6 * i / steps, 0)) for i in range(steps + 1)]
+    rings = []
+    for i, p in enumerate(pts):
+        t = i / steps
+        ring = []
+        for k in range(18):
+            a = 2 * math.pi * k / 18
+            r = (1.15 - 0.75 * t) * (1 + 0.25 * n3(Vector((math.cos(a), t * 6, math.sin(a))), 5))
+            ring.append(p + Vector((math.cos(a) * r, 0, math.sin(a) * r)))
+        rings.append(ring)
+    loft(bm, rings)
+    finish(bm, "Dust", col, material("EarthDust", rgb(150, 125, 95), 0.3, alpha=0.2))
+
+
+def blast_water(col):
+    """A spinning orb of water with currents swirling inside, droplets streaming off and a rippling wake."""
+    rng = random.Random(109)
+
+    bm = bmesh.new()
+    blob(bm, Vector(), 1.0, lambda d: 1 + 0.07 * n3(d * 2.5, 6) - 0.12 * max(0.0, -d.y) ** 2, segments=32, rings=20)
+    finish(bm, "Core", col, material("WaterCore", rgb(120, 200, 255), 0.5, glass=True))
+
+    bm = bmesh.new()
+    for k in range(4):
+        pts, widths = [], []
+        for i in range(41):
+            t = i / 40
+            pts.append(sphere_dir(math.radians(20 + 140 * t), 2 * math.pi * k / 4 + t * 2 * math.pi * 1.3) * 0.68)
+            widths.append(0.14 * math.sin(math.pi * t) + 0.01)
+        rings = []
+        for i, p in enumerate(pts):
+            nrm = p.normalized()
+            tang = (pts[min(i + 1, 40)] - pts[max(i - 1, 0)]).normalized()
+            side = tang.cross(nrm).normalized()
+            rings.append([p + side * widths[i], p + nrm * 0.03, p - side * widths[i], p - nrm * 0.03])
+        loft(bm, rings)
+    finish(bm, "Spiral", col, material("WaterSpiral", rgb(170, 225, 255), 0.6, glass=True))
+
+    bm = bmesh.new()
+    for i in range(40):
+        t = i / 39
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.2, 1.0) * (1 - 0.6 * t)
+        c = Vector((r * math.cos(a), -0.9 - t * 5, r * math.sin(a)))
+        geo = bmesh.ops.create_icosphere(bm, subdivisions=2, radius=rng.uniform(0.05, 0.16) * (1 - 0.5 * t))
+        for v in geo["verts"]:
+            v.co = c + Vector((v.co.x, v.co.y * 1.8, v.co.z))
+    finish(bm, "Foam", col, material("WaterFoam", rgb(235, 248, 255), 1.0))
+
+    bm = bmesh.new()  # ripples left behind in the air
+    for k, (y, r) in enumerate(((-1.2, 1.15), (-2.4, 0.95), (-3.7, 0.7))):
+        revolve(bm, Vector((0, y, 0)), Vector((1, 0, 0)), Vector((0, 0, 1)), Vector((0, 1, 0)), [(r, 0), (r + 0.08, 0.25), (r + 0.18, 0), (r + 0.08, -0.05)], n=40)
+    finish(bm, "Sheath", col, material("WaterSheath", rgb(110, 190, 240), 0.3, alpha=0.3))
+
+
+def blast_energy(col):
+    """A ki blast: a white-hot sphere in layered glow and a rippling aura, streaking energy behind it,
+    sparks crackling round it."""
+    rng = random.Random(110)
+
+    bm = bmesh.new()
+    blob(bm, Vector(), 0.62)
+    finish(bm, "Core", col, material("EnergyCore", rgb(255, 255, 255), 8))
+
+    bm = bmesh.new()
+    blob(bm, Vector(), 0.98, lambda d: 1 - 0.1 * max(0.0, -d.y))
+    finish(bm, "Glow", col, material("EnergyGlow", rgb(90, 200, 255), 3, alpha=0.5))
+
+    bm = bmesh.new()
+    blob(bm, Vector(), 1.4, lambda d: 1 + 0.08 * math.sin(d.x * 7 + d.z * 5) + 0.25 * max(0.0, -d.y) ** 2, segments=32, rings=20)
+    finish(bm, "Aura", col, material("EnergyAura", rgb(40, 140, 255), 1, alpha=0.2))
+
+    bm = bmesh.new()  # streaks of energy trailing behind
+    for k in range(6):
+        a = 2 * math.pi * k / 6
+        pts = [Vector((math.cos(a + t * 2) * 0.7 * (1 - t), -0.3 - 5.2 * t, math.sin(a + t * 2) * 0.7 * (1 - t))) for t in (i / 30 for i in range(31))]
+        tube(bm, pts, [0.12 * (1 - i / 30) + 0.01 for i in range(31)], sides=6)
+    finish(bm, "Coils", col, material("EnergyCoils", rgb(160, 230, 255), 3))
+
+    bm = bmesh.new()
+    for _ in range(8):
+        d0 = sphere_dir(rng.uniform(0, math.pi), rng.uniform(0, 2 * math.pi))
+        d1 = (d0 + Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))) * 0.9).normalized()
+        curve = [d0.lerp(d1, i / 6).normalized() * (1.35 + 0.35 * math.sin(math.pi * i / 6)) for i in range(7)]
+        pts = []
+        for p, q in zip(curve, curve[1:]):
+            pts += jagged(p, q, 1, 0.3, rng)[:-1]
+        pts.append(curve[-1])
+        tube(bm, pts, [0.035] * len(pts), sides=4)
+    finish(bm, "Sparks", col, material("EnergySparks", rgb(220, 245, 255), 6), smooth=False)
+
+
 BLASTS = {
     "Fire": blast_fire,
     "Ice": blast_ice,
@@ -403,6 +529,9 @@ BLASTS = {
     "Void": blast_void,
     "Rift": blast_rift,
     "Wind": blast_wind,
+    "Earth": blast_earth,
+    "Water": blast_water,
+    "Energy": blast_energy,
 }
 
 

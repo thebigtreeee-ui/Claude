@@ -590,6 +590,147 @@ def build_wind(col):
     finish(bm, "Blades", col, material("WindBlade", rgb(215, 255, 240), 1.5))
 
 
+def noisy_tube(bm, points, radius_fn, sides=16):
+    """A tube whose radius varies per vertex: radius_fn(i, angle) -> radius (0 collapses to a tip)."""
+    rings = []
+    for i, (p, (_, n, b)) in enumerate(zip(points, frames(points))):
+        ring = []
+        for k in range(sides):
+            a = 2 * math.pi * k / sides
+            r = radius_fn(i, a)
+            ring.append(p + (n * math.cos(a) + b * math.sin(a)) * max(r, 0.002))
+        rings.append(ring)
+    loft(bm, rings)
+
+
+def build_earth(col):
+    """A torrent of craggy rock spiralling round a molten fault line, wrapped in churning dust."""
+    rng = random.Random(88)
+
+    bm = bmesh.new()
+    line = jagged(axis_point(0), axis_point(LENGTH), 5, 0.02, random.Random(89))
+    tube(bm, line, [0.17] * (len(line) - 1) + [0.0], sides=6)
+    for _ in range(10):  # veins of molten light branching off the fault
+        src = rng.choice(line[3:-3])
+        d = Vector((rng.uniform(-1, 1), rng.uniform(0.2, 1), rng.uniform(-1, 1))).normalized()
+        vein = jagged(src, src + d * rng.uniform(0.6, 1.3), 2, 0.25, rng)
+        tube(bm, vein, [0.07 * (1 - i / (len(vein) - 1)) + 0.01 for i in range(len(vein))], sides=4)
+    finish(bm, "Core", col, material("EarthCore", rgb(255, 170, 70), 5), smooth=False)
+
+    bm = bmesh.new()
+    for i in range(44):
+        t = (i + rng.uniform(-0.3, 0.3)) / 44
+        a = t * 2 * math.pi * 3.5 + rng.uniform(-0.6, 0.6)
+        r = rng.uniform(0.55, 1.0)
+        c = Vector((r * math.cos(a), t * LENGTH, r * math.sin(a)))
+        size = rng.uniform(0.3, 0.75)
+        rock(bm, rng, c, size, squash=(rng.uniform(0.7, 1.2), rng.uniform(0.9, 1.6), rng.uniform(0.6, 1.0)), jitter=0.45)
+    finish(bm, "Rocks", col, material("EarthRock", rgb(95, 82, 70), rough=0.95), smooth=False)
+
+    bm = bmesh.new()
+    for _ in range(90):
+        t = rng.random()
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.7, 1.9)
+        rock(bm, rng, Vector((r * math.cos(a), t * LENGTH, r * math.sin(a))), rng.uniform(0.05, 0.16), jitter=0.4)
+    finish(bm, "Pebbles", col, material("EarthPebble", rgb(125, 108, 92), rough=0.95), smooth=False)
+
+    bm = bmesh.new()
+    steps = 96
+    pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
+    noisy_tube(bm, pts, lambda i, a: (1.15 + 0.3 * n3(Vector((math.cos(a) * 1.5, i * 0.18, math.sin(a) * 1.5)), 9)) * min(1, (steps - i) / 6), sides=18)
+    finish(bm, "Dust", col, material("EarthDust", rgb(150, 125, 95), 0.3, alpha=0.25))
+
+
+def build_water(col):
+    """A high-pressure water jet: a turbulent translucent stream, twisting water ribbons, foam and spray."""
+    rng = random.Random(99)
+    steps = 110
+    pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
+
+    bm = bmesh.new()
+    noisy_tube(bm, pts, lambda i, a: (0.55 + 0.12 * n3(Vector((math.cos(a), i * 0.25, math.sin(a))), 3)) * min(1, (steps - i) / 4), sides=18)
+    finish(bm, "Core", col, material("WaterCore", rgb(120, 200, 255), 0.5, glass=True))
+
+    bm = bmesh.new()
+    for k in range(3):
+        phase = 2 * math.pi * k / 3
+        path = helix(0, LENGTH, 140, lambda t: 0.78 + 0.08 * math.sin(t * 40), turns=4.5, phase=phase)
+        normals = [Vector((p.x, 0, p.z)).normalized() for p in path]
+        rings = []
+        for i, p in enumerate(path):
+            t = i / 140
+            tang = (path[min(i + 1, 140)] - path[max(i - 1, 0)]).normalized()
+            side = tang.cross(normals[i]).normalized()
+            w = 0.22 * min(1, t * 20, (1 - t) * 10)
+            rings.append([p + side * w, p + normals[i] * 0.04, p - side * w, p - normals[i] * 0.04])
+        loft(bm, rings)
+    finish(bm, "Spiral", col, material("WaterSpiral", rgb(170, 225, 255), 0.6, glass=True))
+
+    bm = bmesh.new()
+    for _ in range(70):  # droplets and spray flung off the jet
+        t = rng.random()
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.8, 1.7)
+        c = Vector((r * math.cos(a), t * LENGTH, r * math.sin(a)))
+        ico_s = rng.uniform(0.05, 0.13)
+        geo = bmesh.ops.create_icosphere(bm, subdivisions=2, radius=ico_s)
+        for v in geo["verts"]:
+            v.co = c + Vector((v.co.x, v.co.y * rng.uniform(1.0, 2.2), v.co.z))
+    for _ in range(26):  # foam streaks
+        t = rng.random() * 0.95
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.55, 0.75)
+        p0 = Vector((r * math.cos(a), t * LENGTH, r * math.sin(a)))
+        tube(bm, [p0, p0 + AXIS * rng.uniform(0.6, 1.4)], [0.05, 0.0], sides=4)
+    finish(bm, "Foam", col, material("WaterFoam", rgb(235, 248, 255), 1.0))
+
+    bm = bmesh.new()
+    rads = [1.05 + 0.12 * math.sin(i / steps * 2 * math.pi * 7) for i in range(steps)] + [0]
+    tube(bm, pts, rads, sides=18)
+    finish(bm, "Sheath", col, material("WaterSheath", rgb(110, 190, 240), 0.3, alpha=0.15))
+
+
+def build_energy(col):
+    """A Kamehameha-style ki beam: a blinding white core in layered glow, a rippling aura, coiling energy,
+    a charged ball at the hands and a bulbous head at the front."""
+    steps = 120
+    pts = [axis_point(LENGTH * i / steps) for i in range(steps + 1)]
+
+    bm = bmesh.new()
+    tube(bm, pts, [0.75] * steps + [0.0], sides=20)
+    finish(bm, "Core", col, material("EnergyCore", rgb(255, 255, 255), 8))
+
+    bm = bmesh.new()
+    tube(bm, pts, [1.25 + 0.06 * math.sin(i / steps * 2 * math.pi * 14) for i in range(steps)] + [0.0], sides=20)
+    finish(bm, "Glow", col, material("EnergyGlow", rgb(90, 200, 255), 3, alpha=0.5))
+
+    bm = bmesh.new()
+    noisy_tube(bm, pts, lambda i, a: (1.85 + 0.18 * math.sin(i * 0.9 + a * 3) + 0.1 * n3(Vector((math.cos(a), i * 0.2, math.sin(a))), 4)) * min(1, (steps - i) / 3), sides=24)
+    finish(bm, "Aura", col, material("EnergyAura", rgb(40, 140, 255), 1, alpha=0.2))
+
+    bm = bmesh.new()
+    for k in range(2):
+        path = helix(0, LENGTH, 180, lambda t: 1.5, turns=6, phase=math.pi * k)
+        tube(bm, path, [0.0] + [0.07] * 179 + [0.0], sides=6)
+    finish(bm, "Coils", col, material("EnergyCoils", rgb(160, 230, 255), 3))
+
+    # The head and the muzzle ball keep their round shape: ElementBeams.lua never stretches them.
+    bm = bmesh.new()
+    geo = bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=18, radius=2.4)
+    bmesh.ops.translate(bm, vec=Vector((0, LENGTH, 0)), verts=geo["verts"])
+    finish(bm, "Head", col, material("EnergyHead", rgb(110, 210, 255), 3, alpha=0.55))
+
+    bm = bmesh.new()
+    geo = bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=1.5)
+    bmesh.ops.translate(bm, vec=Vector((0, LENGTH, 0)), verts=geo["verts"])
+    finish(bm, "HeadCore", col, material("EnergyCore", rgb(255, 255, 255), 8))
+
+    bm = bmesh.new()
+    geo = bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=1.3)
+    finish(bm, "Muzzle", col, material("EnergyMuzzle", rgb(150, 220, 255), 4, alpha=0.6))
+
+
 BEAMS = {
     "Fire": build_fire,
     "Ice": build_ice,
@@ -598,6 +739,9 @@ BEAMS = {
     "Void": build_void,
     "Rift": build_rift,
     "Wind": build_wind,
+    "Earth": build_earth,
+    "Water": build_water,
+    "Energy": build_energy,
 }
 
 

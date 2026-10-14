@@ -462,6 +462,232 @@ def ult_void(col):
     finish(bm, "Debris", col, material("VoidDebris", rgb(25, 15, 40), rough=0.9), smooth=False)
 
 
+# ---------------------------------------------------------------- Earth: the ground splits open in front of the user
+
+
+def ult_earth(col):
+    rng = random.Random(308)
+    length = 30.0
+
+    bm = bmesh.new()  # the molten fissure ripping forwards, with branching cracks
+    path = [Vector((0, 1.2, 0.03))]
+    for i in range(1, 25):
+        y = 1.2 + (length - 1.2) * i / 24
+        path.append(Vector((path[-1].x * 0.6 + rng.uniform(-0.7, 0.7), y, 0.03)))
+    for p, q in zip(path, path[1:]):
+        w = 0.25 + 0.5 * (p.y / length)
+        sweep(bm, [p, q], [[(w, 0.0), (0, 0.06), (-w, 0.0), (0, -0.02)]] * 2)
+    for _ in range(14):
+        src = rng.choice(path[2:-1])
+        angular_crack(bm, src, src + Vector((rng.choice((-1, 1)) * rng.uniform(1.5, 4), rng.uniform(-0.5, 2.5), 0)), rng, segments=3, wander=0.3, r=0.07)
+    finish(bm, "Fissure", col, material("EarthFissure", rgb(255, 160, 60), 5), smooth=False)
+
+    bm = bmesh.new()  # broken rubble lining the fissure
+    for p in path[1:]:
+        for s in (-1, 1):
+            for _ in range(3):
+                rock(bm, rng, p + Vector((s * rng.uniform(0.8, 2.6), rng.uniform(-0.6, 0.6), 0.1)), rng.uniform(0.12, 0.35), squash=(1, 1, 0.6), jitter=0.45)
+    finish(bm, "Rubble", col, material("EarthRubble", rgb(110, 95, 80), rough=0.95), smooth=False)
+
+    k = 0
+    for i in range(12):  # slabs of ground heaving up and tilting away from the fissure
+        bm = bmesh.new()
+        y = 3 + i * 2.2
+        s = 1 if i % 2 == 0 else -1
+        p = path[min(int((y - 1.2) / (length - 1.2) * 24), 24)]
+        w = rng.uniform(1.6, 2.4)
+        slab(bm, rng, Vector((0, 0, -0.4)), w, rng.uniform(0.35, 0.55), rng.uniform(3.5, 6.0) * (0.7 + 0.5 * i / 11), lean=0.06, facets=2)
+        tilt = Matrix.Rotation(-s * math.radians(rng.uniform(25, 45)), 4, "Y")
+        bmesh.ops.transform(bm, matrix=Matrix.Translation(Vector((p.x + s * rng.uniform(1.4, 2.0), y, 0))) @ tilt @ Matrix.Rotation(math.pi / 2, 4, "Z"), verts=bm.verts)
+        k += 1
+        finish(bm, f"Slab_{k:02d}", col, material("EarthSlab", rgb(100, 86, 72), rough=0.95), smooth=False)
+
+    for i in range(8):  # jagged spires of rock erupting from the fissure itself
+        bm = bmesh.new()
+        y = 6 + i * 3.1
+        p = path[min(int((y - 1.2) / (length - 1.2) * 24), 24)]
+        h = rng.uniform(5, 9) * (0.75 + 0.4 * i / 7)
+        slab(bm, rng, Vector((p.x, y, -0.6)), rng.uniform(0.8, 1.1), rng.uniform(0.7, 0.9), h, lean=0.25, facets=2)
+        for _ in range(2):
+            base = Vector((p.x + rng.uniform(-0.8, 0.8), y + rng.uniform(-0.8, 0.8), -0.4))
+            slab(bm, rng, base, rng.uniform(0.4, 0.6), rng.uniform(0.35, 0.5), h * rng.uniform(0.4, 0.65), lean=0.35, facets=1)
+        finish(bm, f"Spire_{i + 1:02d}", col, material("EarthSpire", rgb(85, 74, 64), rough=0.95), smooth=False)
+
+    for i in range(7):  # boulders torn loose and held floating around the user
+        bm = bmesh.new()
+        a = 2 * math.pi * i / 7 + rng.uniform(-0.3, 0.3)
+        r = rng.uniform(3, 5)
+        c = Vector((math.cos(a) * r, math.sin(a) * r * 0.8, rng.uniform(2.5, 6)))
+        rock(bm, rng, c, rng.uniform(0.6, 1.2), squash=(1, 1, 0.8), jitter=0.4)
+        rock(bm, rng, c + Vector((rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6), -0.4)), rng.uniform(0.3, 0.5), jitter=0.4)
+        finish(bm, f"Boulder_{i + 1:02d}", col, material("EarthBoulder", rgb(95, 82, 70), rough=0.95), smooth=False)
+
+
+# ---------------------------------------------------------------- Water: a tidal wave rises and crashes forwards
+
+
+def ult_water(col):
+    rng = random.Random(309)
+    width = 30.0
+    cols = 60
+
+    def curl(t, h):
+        """The wave's cross-section: rising from the ground behind, curling over at the top.
+        Returns (forward, up) for t in 0..1 along the face."""
+        if t < 0.7:
+            u = t / 0.7
+            return (-2.0 + 3.5 * u ** 1.6, h * math.sin(u * math.pi / 2) ** 0.9)
+        u = (t - 0.7) / 0.3
+        ang = u * math.pi * 1.05
+        r = 1.6 * h / 10
+        return (1.5 + r * math.sin(ang), h - r * (1 - math.cos(ang)))
+
+    def surface(thick, h_fn, x_fn):
+        rows = 34
+        grid = []
+        for i in range(cols + 1):
+            s = i / cols
+            x = (s - 0.5) * width
+            h = h_fn(s)
+            bulge = x_fn(s)
+            ring = []
+            for j in range(rows + 1):
+                f, z = curl(j / rows, h)
+                ring.append(Vector((x, 4 + f + bulge, z)))
+            for j in range(rows, -1, -1):  # back side, offset for thickness
+                f, z = curl(j / rows, h)
+                ring.append(Vector((x, 4 + f + bulge - thick * (1 - j / rows), z - thick * 0.4)))
+            grid.append(ring)
+        return grid
+
+    heights = lambda s: 12 * math.sin(math.pi * (0.06 + 0.88 * s)) ** 0.6 * (1 + 0.08 * n3(Vector((s * 6, 0, 0)), 3))
+    bulges = lambda s: 3.0 * math.sin(math.pi * s)  # the middle leads, the ends trail
+
+    bm = bmesh.new()
+    loft(bm, surface(0.7, heights, bulges))
+    finish(bm, "Wave", col, material("WaterWave", rgb(60, 150, 220), 0.5, glass=True))
+
+    bm = bmesh.new()  # foam along the curling lip
+    lip = []
+    for i in range(cols + 1):
+        s = i / cols
+        f, z = curl(0.93, heights(s))
+        lip.append(Vector(((s - 0.5) * width, 4 + f + bulges(s), z)))
+    noisy = [0.45 + 0.25 * abs(n3(Vector((i * 0.3, 0, 0)), 7)) for i in range(cols + 1)]
+    tube(bm, lip, noisy, sides=10)
+    finish(bm, "Crest", col, material("WaterCrest", rgb(235, 245, 255), 1.0, alpha=0.85))
+
+    bm = bmesh.new()  # currents streaming up the face of the wave
+    for k in range(14):
+        s = (k + 0.5) / 14
+        pts = []
+        for j in range(30):
+            f, z = curl(0.05 + 0.85 * j / 29, heights(s))
+            pts.append(Vector(((s - 0.5) * width + rng.uniform(-0.2, 0.2), 4 + f + bulges(s) + 0.4, z)))
+        tube(bm, pts, [0.06] * 29 + [0.0], sides=4)
+    finish(bm, "Swirl", col, material("WaterSwirl", rgb(150, 215, 255), 1.5, alpha=0.6))
+
+    bm = bmesh.new()  # spray thrown off the crest
+    for _ in range(160):
+        s = rng.random()
+        f, z = curl(rng.uniform(0.85, 1.0), heights(s))
+        c = Vector(((s - 0.5) * width, 4 + f + bulges(s) + rng.uniform(-0.5, 1.5), z + rng.uniform(0, 2.5)))
+        geo = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=rng.uniform(0.06, 0.2))
+        for v in geo["verts"]:
+            v.co = c + v.co
+    finish(bm, "Spray", col, material("WaterSpray", rgb(225, 240, 255), 1.0, alpha=0.8), smooth=False)
+
+    bm = bmesh.new()  # churning foam at the foot of the wave
+    edge = [rng.uniform(0.8, 1.2) for _ in range(80)]
+    flat_disc(bm, Vector((0, 4.5, 0.03)), lambda a: (abs(math.cos(a)) * 15 + abs(math.sin(a)) * 3.5) * edge[int(a / (2 * math.pi) * 80) % 80], thickness=0.08, n=80)
+    finish(bm, "Foam", col, material("WaterFoam", rgb(230, 242, 250), 0.4, alpha=0.7), smooth=False)
+
+
+# ---------------------------------------------------------------- Energy: a Kamehameha
+
+
+def ult_energy(col):
+    rng = random.Random(310)
+    M = Vector((0, 1.4, 3.6))  # the muzzle: hands thrust forwards at chest height
+    beam_len = 60.0
+    X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
+
+    def beam_points(steps=80):
+        return [M + Y * (beam_len * i / steps) for i in range(steps + 1)]
+
+    pts = beam_points()
+    bm = bmesh.new()
+    tube(bm, pts, [1.25] * 80 + [0.0], sides=24)
+    finish(bm, "Beam", col, material("EnergyCore", rgb(255, 255, 255), 8))
+
+    bm = bmesh.new()
+    tube(bm, pts, [2.1 + 0.12 * math.sin(i * 1.1) for i in range(80)] + [0.0], sides=24)
+    finish(bm, "BeamGlow", col, material("EnergyGlow", rgb(90, 200, 255), 3, alpha=0.5))
+
+    bm = bmesh.new()
+    rings = []
+    for i, p in enumerate(pts):
+        ring = []
+        for k in range(28):
+            a = 2 * math.pi * k / 28
+            r = (3.1 + 0.3 * math.sin(i * 0.7 + a * 3) + 0.2 * n3(Vector((math.cos(a), i * 0.15, math.sin(a))), 2)) * min(1.0, (80 - i) / 3 + 0.02)
+            ring.append(p + (X * math.cos(a) + Z * math.sin(a)) * r)
+        rings.append(ring)
+    loft(bm, rings)
+    finish(bm, "BeamAura", col, material("EnergyAura", rgb(40, 140, 255), 1, alpha=0.2))
+
+    bm = bmesh.new()
+    for k in range(3):
+        path = [M + Y * (beam_len * t) + (X * math.cos(k * 2.09 + t * 2 * math.pi * 9) + Z * math.sin(k * 2.09 + t * 2 * math.pi * 9)) * 2.6 for t in (i / 300 for i in range(301))]
+        tube(bm, path, [0.0] + [0.11] * 299 + [0.0], sides=6)
+    finish(bm, "BeamCoils", col, material("EnergyCoils", rgb(160, 230, 255), 3))
+
+    bm = bmesh.new()  # the bulbous head blasting out in front of the beam
+    ico(bm, M + Y * beam_len, 4.2, subdiv=4, squash=(1, 1.15, 1), bumps=0.08, seed=4)
+    finish(bm, "Head", col, material("EnergyHead", rgb(110, 210, 255), 3, alpha=0.55))
+
+    bm = bmesh.new()
+    ico(bm, M, 0.95, subdiv=4, bumps=0.03)
+    finish(bm, "Ball", col, material("EnergyCore", rgb(255, 255, 255), 8))
+
+    bm = bmesh.new()
+    ico(bm, M, 1.6, subdiv=4, bumps=0.12, seed=8)
+    finish(bm, "BallGlow", col, material("EnergyGlow", rgb(90, 200, 255), 3, alpha=0.5))
+
+    bm = bmesh.new()  # shockwave rings punched out at the moment of release
+    for d, r in ((1.0, 2.6), (3.0, 3.6), (5.5, 4.4)):
+        revolve(bm, M + Y * d, X, Z, Y, [(r - 0.15, 0), (r, 0.12), (r + 0.25, 0), (r, -0.06)], n=56)
+    finish(bm, "Rings", col, material("EnergyRings", rgb(190, 235, 255), 2, alpha=0.6))
+
+    bm = bmesh.new()  # the ki aura blazing round the user while charging
+    rings = []
+    for i in range(31):
+        t = i / 30
+        z = 7.5 * t
+        ring = []
+        for k in range(32):
+            a = 2 * math.pi * k / 32
+            spike = 0.35 * abs(math.sin(a * 4 + t * 3)) ** 3
+            r = (1.6 + 0.4 * math.sin(math.pi * min(t * 1.6, 1))) * (1 - t ** 3) + spike * t
+            ring.append(Vector((math.cos(a) * r, math.sin(a) * r * 0.8, z)))
+        rings.append(ring)
+    loft(bm, rings)
+    finish(bm, "Aura", col, material("EnergyAuraBody", rgb(90, 200, 255), 1.5, alpha=0.3))
+
+    bm = bmesh.new()  # the ground cracking under the pressure
+    for k in range(11):
+        a = 2 * math.pi * k / 11 + rng.uniform(-0.2, 0.2)
+        angular_crack(bm, Vector((math.cos(a) * 0.8, math.sin(a) * 0.8, 0.03)), Vector((math.cos(a) * rng.uniform(4, 7), math.sin(a) * rng.uniform(4, 7), 0.03)), rng, segments=4, wander=0.3, r=0.06)
+    finish(bm, "Cracks", col, material("EnergyCracks", rgb(150, 220, 255), 3), smooth=False)
+
+    bm = bmesh.new()  # chunks of ground lifted by the gathering energy
+    for _ in range(26):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(2, 6.5)
+        rock(bm, rng, Vector((math.cos(a) * r, math.sin(a) * r, rng.uniform(0.5, 3.5))), rng.uniform(0.15, 0.45), jitter=0.45)
+    finish(bm, "Rocks", col, material("EnergyRocks", rgb(105, 95, 85), rough=0.95), smooth=False)
+
+
 ULTIMATES = {
     "Rift": (ult_rift, (-18, -8, 10), (0, 9, 6)),
     "Electric": (ult_electric, (-46, -32, 18), (0, 13, 15)),
@@ -469,6 +695,9 @@ ULTIMATES = {
     "Ice": (ult_ice, (-25, -17, 14), (0, 10, 5)),
     "Wind": (ult_wind, (11, 15, 7), (0, 4, 3.5)),
     "Void": (ult_void, (-22, -10, 14), (0, 16, 8)),
+    "Earth": (ult_earth, (-25, -7, 17), (0, 14, 3)),
+    "Water": (ult_water, (-30, -10, 11), (0, 6, 6)),
+    "Energy": (ult_energy, (-24, -14, 14), (0, 18, 3)),
 }
 
 

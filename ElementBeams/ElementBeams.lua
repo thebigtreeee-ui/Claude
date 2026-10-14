@@ -8,6 +8,7 @@
 --   local ElementBeams = require(game.ReplicatedStorage.ElementBeams)
 --   ElementBeams.fire("Fire", handPosition, hitPosition)   -- beam
 --   ElementBeams.blast("Fire", handPosition, hitPosition)  -- projectile
+--   ElementBeams.fire("Energy", hand, hit, { color = Color3.fromRGB(255, 220, 60) })  -- recoloured
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -76,7 +77,64 @@ ElementBeams.Styles = {
 		Rings = style(150, 235, 215, Enum.Material.ForceField, 0),
 		Blades = style(215, 255, 240, Neon, 0.15),
 	},
+	Earth = {
+		Spin = 2,
+		Core = style(255, 170, 70, Neon), -- molten fault line
+		Rocks = style(95, 82, 70, Enum.Material.Slate),
+		Pebbles = style(125, 108, 92, Enum.Material.Slate),
+		Dust = style(150, 125, 95, Enum.Material.ForceField, 0),
+	},
+	Water = {
+		Spin = 5,
+		Core = style(120, 200, 255, Enum.Material.Glass, 0.35),
+		Spiral = style(170, 225, 255, Enum.Material.Glass, 0.2),
+		Foam = style(235, 248, 255, Enum.Material.SmoothPlastic, 0.15),
+		Sheath = style(110, 190, 240, Enum.Material.ForceField, 0),
+	},
+	Energy = {
+		Spin = 3,
+		Core = style(255, 255, 255, Neon),
+		Glow = style(90, 200, 255, Neon, 0.35),
+		Aura = style(40, 140, 255, Enum.Material.ForceField, 0),
+		Coils = style(160, 230, 255, Neon, 0.25),
+		Head = style(110, 210, 255, Neon, 0.35),
+		HeadCore = style(255, 255, 255, Neon),
+		Muzzle = style(150, 220, 255, Neon, 0.2),
+		Sparks = style(220, 245, 255, Neon), -- blast only
+	},
 }
+
+-- Which parts `options.color` repaints for each element (its glowing, "energy" parts).
+ElementBeams.Recolorable = {
+	Fire = { "Flames", "Wisps" },
+	Ice = { "Core", "Shards" },
+	Electric = { "Branches", "Sheath" },
+	Nature = { "Core" },
+	Void = { "Horizon", "Tendrils", "Rings" },
+	Rift = { "Core", "Tear", "EdgeMagenta", "EdgeCyan", "Gates" },
+	Wind = { "Core", "Streams", "Rings", "Blades" },
+	Earth = { "Core", "Dust" },
+	Water = { "Core", "Spiral", "Sheath" },
+	Energy = { "Glow", "Aura", "Coils", "Head", "Muzzle", "Sparks" },
+}
+
+-- Parts that keep their shape when a beam is stretched (the Energy beam's round head and muzzle ball).
+local NO_STRETCH = { Head = true, HeadCore = true, Muzzle = true }
+
+local function recolor(model, element, color)
+	if not color then
+		return
+	end
+	local names = {}
+	for _, name in ElementBeams.Recolorable[element] or {} do
+		names[name] = true
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and names[part.Name] then
+			part.Color = color
+		end
+	end
+end
 
 local function markers(model)
 	local startPart = model:FindFirstChild("Start", true)
@@ -128,11 +186,13 @@ local function findTemplate(element, folderName, suffix, length)
 	return ElementBeams.prepare(template, element, length)
 end
 
--- Returns a copy of the element's beam running from origin to target. `width` scales thickness (default 1).
--- Only the length is stretched, so the detail (flames, shards, leaves) keeps its shape across the beam's width.
-function ElementBeams.place(element, origin, target, width)
+-- Returns a copy of the element's beam running from origin to target. `width` scales thickness (default 1),
+-- `color` (optional Color3) repaints its glowing parts. Only the length is stretched, so the detail
+-- (flames, shards, leaves) keeps its shape across the beam's width.
+function ElementBeams.place(element, origin, target, width, color)
 	width = width or 1
 	local model = findTemplate(element, "ElementBeamModels", "Beam", DESIGN_LENGTH):Clone()
+	recolor(model, element, color)
 	local startPart, endPart = markers(model)
 	local from = CFrame.lookAt(startPart.Position, endPart.Position)
 	local to = CFrame.lookAt(origin, target)
@@ -144,15 +204,19 @@ function ElementBeams.place(element, origin, target, width)
 			local p = relative.Position
 			relative = relative.Rotation + Vector3.new(p.X * width, p.Y * width, p.Z * stretch)
 
-			-- Stretch whichever of the part's own axes runs along the beam.
-			local along = part.CFrame:VectorToObjectSpace(from.LookVector)
-			local ax, ay, az = math.abs(along.X), math.abs(along.Y), math.abs(along.Z)
-			part.Size = part.Size
-				* Vector3.new(
-					(ax >= ay and ax >= az) and stretch or width,
-					(ay > ax and ay >= az) and stretch or width,
-					(az > ax and az > ay) and stretch or width
-				)
+			if NO_STRETCH[part.Name] then
+				part.Size *= width
+			else
+				-- Stretch whichever of the part's own axes runs along the beam.
+				local along = part.CFrame:VectorToObjectSpace(from.LookVector)
+				local ax, ay, az = math.abs(along.X), math.abs(along.Y), math.abs(along.Z)
+				part.Size = part.Size
+					* Vector3.new(
+						(ax >= ay and ax >= az) and stretch or width,
+						(ay > ax and ay >= az) and stretch or width,
+						(az > ax and az > ay) and stretch or width
+					)
+			end
 			part.CFrame = to * relative
 		end
 	end
@@ -177,7 +241,7 @@ function ElementBeams.fire(element, origin, target, options)
 	local hold = options.hold or 0.35
 	local fadeOut = options.fadeOut or 0.25
 
-	local model = ElementBeams.place(element, origin, target, options.width)
+	local model = ElementBeams.place(element, origin, target, options.width, options.color)
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Transparency = 1
@@ -207,11 +271,13 @@ end
 
 -- Launches the element's blast from origin and flies it to target, rolling as it goes. Calls
 -- options.onArrive(target) when it gets there, then removes it. Options: speed (studs/sec, default 90),
--- size (default 1), parent. Returns the model. Purely visual: do your hit detection as you do now.
+-- size (default 1), color (Color3 for its glowing parts), parent. Returns the model.
+-- Purely visual: do your hit detection as you do now.
 function ElementBeams.blast(element, origin, target, options)
 	options = options or {}
 	local speed = options.speed or 90
 	local model = findTemplate(element, "ElementBlastModels", "Blast", BLAST_LENGTH):Clone()
+	recolor(model, element, options.color)
 	if options.size and options.size ~= 1 then
 		model:ScaleTo(model:GetScale() * options.size)
 	end

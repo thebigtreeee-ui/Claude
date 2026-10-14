@@ -17,12 +17,15 @@ fire, smoke, mist and sparks on top, which Blender can't preview.*
 | **Ice** | Stomp → ice wall | The stomp throws up ice chips and mist, frost and cracks race across the ground, spikes punch up along the path, then an arc of craggy, splintered ice slabs bursts up section by section with a rumble. It shatters in the same order | 7.4 s |
 | **Wind** | Wind clap | The user claps their own hands (play this at the moment of the clap): a sharp burst of compressed air, shockwave shells punching forward from the hands, streaks of wind, a ring of air and dust blasting out along the ground, grit kicked away | 2 s |
 | **Void** | Black hole | A black hole implodes into being, the accretion disc unfurls and spins, polar jets shoot up and down, and debris spirals in and gets crushed. It snaps shut with a flash | 8 s |
+| **Earth** | Earthsplitter | The stomp throws up dust and rock chips, a molten fissure rips 30 studs forwards, slabs of ground heave up and tilt away from it, jagged spires erupt from the crack, boulders tear loose and float round the user, then slam down as everything sinks back | 6.8 s |
+| **Water** | Tidal wave | A wall of water surges up out of the ground in front of the user, rolls forwards curling over with foam on its lip and spray flying, then crashes down in a burst of droplets and mist and spreads out as foam | 6.5 s |
+| **Energy** | Kamehameha | Energy gathers into a ball at the hip while a ki aura blazes, the ground cracks and rocks lift into the air. Then the thrust: the ball snaps to the front, shockwave rings punch out and a huge beam blasts 60 studs forwards with its bulbous head, ripping up dust along the ground, before it thins away | 6.2 s |
 
 ## Setup in Studio
 
-1. **Import** the six `*Ultimate.fbx` files (Home → Import 3D; you can select all at once). The
+1. **Import** the `*Ultimate.fbx` files (Home → Import 3D; you can select all at once). The
    default settings are fine.
-2. Create a Folder **`ElementUltimateModels`** in `ReplicatedStorage` and put the six models in it.
+2. Create a Folder **`ElementUltimateModels`** in `ReplicatedStorage` and put the models in it.
    Keep the model and part names (`Edge`, `Abyss`, `Wall_03`, `Spike_05`...) because the animation
    finds the parts by name. Keep the tiny `Start`, `End` and `Top` marker parts too.
 3. Add **`ElementUltimates.lua`** to `ReplicatedStorage` as a ModuleScript named `ElementUltimates`.
@@ -37,6 +40,11 @@ ElementUltimates.play("Void", ElementUltimates.feet(character))
 -- recoloured (repaints the element's glowing parts, particles and lightning)
 ElementUltimates.play("Fire", ElementUltimates.feet(character), {
 	color = Color3.fromRGB(80, 160, 255), -- blue fire
+})
+
+-- a golden Kamehameha
+ElementUltimates.play("Energy", ElementUltimates.feet(character), {
+	color = Color3.fromRGB(255, 215, 70),
 })
 
 -- other options

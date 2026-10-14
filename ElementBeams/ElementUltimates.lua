@@ -68,6 +68,33 @@ ElementUltimates.Styles = {
 		Jets = style(165, 140, 255, Neon, 0.3),
 		Debris = style(25, 15, 40, Enum.Material.Slate),
 	},
+	Earth = {
+		Fissure = style(255, 160, 60, Neon),
+		Rubble = style(110, 95, 80, Enum.Material.Slate),
+		Slab = style(100, 86, 72, Enum.Material.Slate),
+		Spire = style(85, 74, 64, Enum.Material.Slate),
+		Boulder = style(95, 82, 70, Enum.Material.Slate),
+	},
+	Water = {
+		Wave = style(60, 150, 220, Glass, 0.3),
+		Crest = style(235, 245, 255, Smooth, 0.15),
+		Swirl = style(150, 215, 255, Neon, 0.5),
+		Spray = style(225, 240, 255, Glass, 0.2),
+		Foam = style(230, 242, 250, Smooth, 0.35),
+	},
+	Energy = {
+		Beam = style(255, 255, 255, Neon),
+		BeamGlow = style(90, 200, 255, Neon, 0.35),
+		BeamAura = style(40, 140, 255, ForceField, 0),
+		BeamCoils = style(160, 230, 255, Neon, 0.25),
+		Head = style(110, 210, 255, Neon, 0.3),
+		Ball = style(255, 255, 255, Neon),
+		BallGlow = style(90, 200, 255, Neon, 0.3),
+		Rings = style(190, 235, 255, Neon, 0.4),
+		Aura = style(90, 200, 255, ForceField, 0),
+		Cracks = style(150, 220, 255, Neon, 0.2),
+		Rocks = style(105, 95, 85, Enum.Material.Slate),
+	},
 }
 
 -- Which parts `options.color` repaints for each element. The element's particles and lightning
@@ -79,6 +106,9 @@ ElementUltimates.Recolorable = {
 	Ice = { "Cracks", "Frost" },
 	Wind = { "Flash", "Rings", "GroundRing", "Streaks" },
 	Void = { "Disk", "DiskOuter", "Jets", "Ring", "Horizon" },
+	Earth = { "Fissure" },
+	Water = { "Wave", "Swirl" },
+	Energy = { "BeamGlow", "BeamAura", "BeamCoils", "Head", "BallGlow", "Rings", "Aura", "Cracks" },
 }
 
 -- ---------------------------------------------------------------- easing
@@ -744,6 +774,399 @@ Animations.Wind = {
 				alpha = 1 - phase(t, 0.4, 0.8),
 			}
 		end
+	end,
+}
+
+-- ground parts burst up in a wave travelling away from the user, then sink in the same order
+local function heave(r, t, c, delay, riseTime, sinkStart)
+	local rise = phase(t, delay, delay + riseTime)
+	if rise <= 0 then
+		return { alpha = 0 }
+	end
+	local e = outQuart(rise)
+	local sink = inQuad(phase(t, sinkStart, sinkStart + 0.7))
+	local rumble = math.sin(t * 65 + r.distance) * 0.07 * c.size * math.max(0, 1 - (t - delay) / 0.5)
+	return {
+		scale = Vector3.new(0.8 + 0.2 * e, math.max(e, 0.01), 0.8 + 0.2 * e),
+		pivot = Vector3.new(r.pos.X, 0, r.pos.Z),
+		offset = Vector3.new(rumble, -sink * r.height, 0),
+		alpha = 1 - sink,
+	}
+end
+
+local function earthDelay(r, c)
+	if r.prefix == "Spire" then
+		return 0.25 + r.distance / (42 * c.size)
+	end
+	return 0.1 + r.distance / (48 * c.size)
+end
+
+Animations.Earth = {
+	duration = 6.8,
+	setup = function(c)
+		local S = c.size
+		local tint = c.color or rgb(255, 160, 60)
+		local dust = {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(140, 120, 95) }, { 1, rgb(105, 92, 78) } }),
+			Size = numbers({ { 0, 2 }, { 1, 7 } }, S),
+			Transparency = numbers({ { 0, 0.4 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1.0, 2.0),
+			Speed = NumberRange.new(4 * S, 10 * S),
+			SpreadAngle = Vector2.new(75, 75),
+			EmissionDirection = Enum.NormalId.Top,
+			RotSpeed = NumberRange.new(-30, 30),
+			Drag = 2,
+		}
+		local chips = {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(150, 130, 105) }, { 1, rgb(90, 78, 66) } }),
+			LightEmission = 0,
+			Size = numbers({ { 0, 0.45 }, { 1, 0.2 } }, S),
+			Lifetime = NumberRange.new(0.5, 1.0),
+			Speed = NumberRange.new(14 * S, 26 * S),
+			SpreadAngle = Vector2.new(60, 60),
+			EmissionDirection = Enum.NormalId.Top,
+			Acceleration = Vector3.new(0, -50 * S, 0),
+			RotSpeed = NumberRange.new(-200, 200),
+		}
+		local feet = holder(c, CFrame.new(c.v(0, 0.3, 0)))
+		c.stompDust = emitter(feet, dust)
+		c.stompChips = emitter(feet, chips)
+		-- a dust burst and flying chips wherever a slab or spire breaks the ground
+		c.risers = {}
+		c.boulders = {}
+		for _, r in c.rests do
+			if r.prefix == "Slab" or r.prefix == "Spire" then
+				local base = holder(c, CFrame.new(Vector3.new(r.pos.X, 0.4 * S, r.pos.Z)))
+				table.insert(c.risers, { rest = r, dust = emitter(base, dust), chips = emitter(base, chips) })
+			elseif r.prefix == "Boulder" then
+				local base = holder(c, CFrame.new(Vector3.new(r.pos.X, 0.4 * S, r.pos.Z)))
+				table.insert(c.boulders, { dust = emitter(base, dust), chips = emitter(base, chips) })
+			end
+		end
+		local fissure = holder(c, CFrame.new(c.v(0, 0.3, -15)), Vector3.new(2, 0.5, 28) * S)
+		c.embers = emitter(fissure, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(255, 230, 160) }, { 1, tint } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 0.3 }, { 1, 0 } }, S),
+			Lifetime = NumberRange.new(0.8, 1.6),
+			Speed = NumberRange.new(3 * S, 8 * S),
+			SpreadAngle = Vector2.new(25, 25),
+			EmissionDirection = Enum.NormalId.Top,
+			Rate = 35,
+		})
+		c.lights = {
+			light(holder(c, CFrame.new(c.v(0, 1.5, -8))), tint, 22 * S),
+			light(holder(c, CFrame.new(c.v(0, 1.5, -22))), tint, 22 * S),
+		}
+	end,
+	frame = function(t, c)
+		once(c, "stomp", t, 0.02, function()
+			c.stompDust:Emit(25)
+			c.stompChips:Emit(40)
+		end)
+		for i, riser in c.risers do
+			once(c, "rise" .. i, t, earthDelay(riser.rest, c), function()
+				riser.dust:Emit(10)
+				riser.chips:Emit(16)
+			end)
+		end
+		once(c, "slam", t, 4.85, function()
+			for _, b in c.boulders do
+				b.dust:Emit(14)
+				b.chips:Emit(20)
+			end
+		end)
+		c.embers.Enabled = t > 0.5 and t < 5.8
+		local glow = outQuart(phase(t, 0, 0.55)) * (1 - phase(t, 5.8, 6.6)) * (0.85 + 0.15 * math.sin(t * 6))
+		for _, l in c.lights do
+			l.Brightness = 3 * glow
+		end
+	end,
+	part = function(r, t, c)
+		local p = r.prefix
+		if p == "Fissure" or p == "Rubble" then
+			-- rips forwards from the user's feet
+			local e = outQuart(phase(t, 0, 0.55))
+			local alpha = 1 - phase(t, 5.9, 6.6)
+			if p == "Fissure" then
+				alpha *= 0.8 + 0.2 * math.sin(t * 6)
+			end
+			return { scale = Vector3.new(1, 1, math.max(e, 0.01)), pivot = Vector3.zero, alpha = alpha }
+		elseif p == "Slab" then
+			return heave(r, t, c, earthDelay(r, c), 0.25, 5.2 + r.distance / (90 * c.size))
+		elseif p == "Spire" then
+			return heave(r, t, c, earthDelay(r, c), 0.2, 5.3 + r.distance / (90 * c.size))
+		else -- Boulder_NN: torn loose, held floating and turning, then slammed down
+			local index = r.index or 1
+			local start = 0.3 + index * 0.08
+			local lift = outQuad(phase(t, start, start + 1.0))
+			local slam = inQuad(phase(t, 4.6, 4.85))
+			local hover = (lift - 1) * 3 * c.size + 0.3 * c.size * math.sin(t * 2 + index) * (1 - slam)
+			return {
+				rot = CFrame.Angles(t * 0.5 * (1 - slam), t * 0.7 * (1 - slam), 0),
+				rotPivot = r.pos,
+				offset = Vector3.new(0, hover - slam * (r.pos.Y - 0.6 * c.size), 0),
+				alpha = phase(t, start, start + 0.2) * (1 - phase(t, 5.3, 5.9)),
+			}
+		end
+	end,
+}
+
+local function waveState(t, c)
+	local S = c.size
+	local rise = outQuad(phase(t, 0, 1.1))
+	local travel = 20 * S * (1 - math.cos(math.pi * phase(t, 1.0, 4.2))) / 2
+	local crash = inQuad(phase(t, 4.2, 5.0))
+	return rise, travel, crash
+end
+
+Animations.Water = {
+	duration = 6.5,
+	setup = function(c)
+		local S = c.size
+		local tint = c.color or rgb(120, 190, 240)
+		c.crest = holder(c, CFrame.new(c.v(0, 11, -6)), Vector3.new(26, 2, 3) * S)
+		local mist = {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(235, 245, 252) }, { 1, rgb(205, 225, 240) } }),
+			Size = numbers({ { 0, 2 }, { 1, 6 } }, S),
+			Transparency = numbers({ { 0, 0.5 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1, 1.8),
+			Speed = NumberRange.new(2 * S, 6 * S),
+			SpreadAngle = Vector2.new(60, 60),
+			EmissionDirection = Enum.NormalId.Top,
+			RotSpeed = NumberRange.new(-30, 30),
+		}
+		local droplets = {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(240, 250, 255) }, { 1, tint } }),
+			LightEmission = 0.3,
+			Size = numbers({ { 0, 0.35 }, { 1, 0.1 } }, S),
+			Lifetime = NumberRange.new(0.6, 1.2),
+			Speed = NumberRange.new(8 * S, 18 * S),
+			SpreadAngle = Vector2.new(50, 50),
+			EmissionDirection = Enum.NormalId.Top,
+			Acceleration = Vector3.new(0, -40 * S, 0),
+		}
+		c.crestMist = emitter(c.crest, mist)
+		c.crestMist.Rate = 25
+		c.crestDrops = emitter(c.crest, droplets)
+		c.crestDrops.Rate = 70
+		c.base = holder(c, CFrame.new(c.v(0, 0.5, -5)), Vector3.new(26, 1, 4) * S)
+		c.baseMist = emitter(c.base, mist)
+		c.baseDrops = emitter(c.base, droplets)
+		c.light = light(c.crest, tint, 35 * S)
+	end,
+	frame = function(t, c)
+		local S = c.size
+		local rise, travel, crash = waveState(t, c)
+		local height = 11 * S * math.max(rise, 0.05) * (1 - 0.85 * crash)
+		c.crest.CFrame = c.frame * CFrame.new(0, height, -6 * S - travel - 4 * S * crash)
+		c.base.CFrame = c.frame * CFrame.new(0, 0.5 * S, -5 * S - travel - 4 * S * crash)
+		c.crestMist.Enabled = t > 0.8 and t < 4.5
+		c.crestDrops.Enabled = t > 0.8 and t < 4.5
+		once(c, "surge", t, 0.05, function()
+			c.baseMist:Emit(30)
+		end)
+		once(c, "crash", t, 4.55, function()
+			c.baseMist:Emit(60)
+			c.baseDrops:Emit(220)
+		end)
+		c.light.Brightness = 1.5 * rise * (1 - phase(t, 4.6, 5.6))
+	end,
+	part = function(r, t, c)
+		local S = c.size
+		local rise, travel, crash = waveState(t, c)
+		local p = r.prefix
+		if p == "Foam" then
+			return {
+				scale = flat(outQuad(phase(t, 0, 1.0)) * (1 + 1.5 * crash)),
+				pivot = c.v(0, 0, -4.5),
+				offset = Vector3.new(0, 0, -travel - 4 * S * crash),
+				alpha = 1 - phase(t, 5.2, 6.4),
+			}
+		end
+		-- the wave surges up out of the ground, rolls forwards, then crashes down and spreads
+		local alpha = 1 - phase(t, 4.6, 5.4)
+		if p == "Spray" then
+			alpha *= phase(t, 0.7, 1.1) * (0.75 + 0.25 * math.sin(t * 9))
+		end
+		return {
+			scale = Vector3.new(1, math.max(rise * (1 - 0.85 * crash), 0.01), (0.6 + 0.4 * rise) * (1 + 0.6 * crash)),
+			pivot = c.v(0, 0, -5),
+			offset = Vector3.new(0, 0, -travel - 4 * S * crash),
+			alpha = alpha,
+		}
+	end,
+}
+
+-- Kamehameha: charge at the hip, thrust forwards, fire
+local KAME_MUZZLE = Vector3.new(0, 3.6, -1.4) -- where the beam leaves the hands (model space, size 1)
+local KAME_HIP = Vector3.new(1.3, 2.6, 0.2) -- where the ball is gathered while charging
+local KAME_LENGTH = 60
+
+local function kamehameha(t)
+	local move = outQuart(phase(t, 2.0, 2.2)) -- ball thrust from the hip to the front
+	local fire = outQuart(phase(t, 2.2, 2.5)) -- beam racing out to full length
+	local thin = inQuad(phase(t, 4.6, 5.2)) -- beam collapsing to nothing
+	return move, fire, thin
+end
+
+Animations.Energy = {
+	duration = 6.2,
+	setup = function(c)
+		local S = c.size
+		local tint = c.color or rgb(90, 200, 255)
+		c.ball = holder(c, CFrame.new(KAME_HIP * S), Vector3.new(6, 6, 6) * S)
+		c.gather = emitter(c.ball, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, tint }, { 1, rgb(255, 255, 255) } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 0.3 }, { 1, 0.05 } }, S),
+			Lifetime = NumberRange.new(0.3, 0.5),
+			Speed = NumberRange.new(6 * S, 10 * S),
+			Rate = 90,
+		})
+		-- energy streams *into* the ball from all around (falls back to bursting outwards on old clients)
+		pcall(function()
+			c.gather.Shape = Enum.ParticleEmitterShape.Sphere
+			c.gather.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+			c.gather.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+		end)
+		c.release = emitter(c.ball, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(255, 255, 255) }, { 1, tint } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 0.6 }, { 1, 0 } }, S),
+			Lifetime = NumberRange.new(0.3, 0.7),
+			Speed = NumberRange.new(30 * S, 60 * S),
+			SpreadAngle = Vector2.new(180, 180),
+			Drag = 3,
+		})
+		c.ballLight = light(c.ball, tint, 25 * S)
+
+		local feet = holder(c, CFrame.new(c.v(0, 0.3, 0)), Vector3.new(3, 0.4, 3) * S)
+		c.auraSparks = emitter(feet, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(255, 255, 255) }, { 1, tint } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 0.35 }, { 1, 0 } }, S),
+			Lifetime = NumberRange.new(0.4, 0.8),
+			Speed = NumberRange.new(6 * S, 12 * S),
+			SpreadAngle = Vector2.new(15, 15),
+			EmissionDirection = Enum.NormalId.Top,
+			Rate = 55,
+		})
+		c.auraLight = light(holder(c, CFrame.new(c.v(0, 3, 0))), tint, 18 * S)
+
+		local path = holder(c, CFrame.new(c.v(0, 0.5, -31)), Vector3.new(8, 1, 56) * S)
+		c.trench = emitter(path, {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(150, 140, 125) }, { 1, rgb(110, 104, 95) } }),
+			Size = numbers({ { 0, 3 }, { 1, 9 } }, S),
+			Transparency = numbers({ { 0, 0.5 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1, 1.8),
+			Speed = NumberRange.new(4 * S, 10 * S),
+			SpreadAngle = Vector2.new(50, 50),
+			EmissionDirection = Enum.NormalId.Top,
+			RotSpeed = NumberRange.new(-30, 30),
+			Rate = 45,
+		})
+		c.beamLights = {}
+		for _, z in { -15, -35, -55 } do
+			table.insert(c.beamLights, light(holder(c, CFrame.new(c.v(0, 3.6, z))), tint, 30 * S))
+		end
+	end,
+	frame = function(t, c)
+		local S = c.size
+		local move, fire, thin = kamehameha(t)
+		c.ball.CFrame = c.frame * CFrame.new((KAME_HIP:Lerp(KAME_MUZZLE, move)) * S)
+		c.gather.Enabled = t > 0.2 and t < 2.0
+		c.auraSparks.Enabled = t > 0.1 and t < 4.8
+		c.trench.Enabled = t > 2.3 and t < 4.7
+		once(c, "release", t, 2.2, function()
+			c.release:Emit(150)
+		end)
+		local charge = outQuad(phase(t, 0.2, 2.0))
+		local flash = math.max(0, 1 - math.abs(t - 2.25) / 0.2)
+		c.ballLight.Brightness = (2 + 3 * charge) * (1 - phase(t, 4.6, 5.0)) + 10 * flash
+		c.auraLight.Brightness = 2 * outQuart(phase(t, 0, 0.4)) * (1 - phase(t, 4.8, 5.6))
+		for _, l in c.beamLights do
+			l.Brightness = 4 * fire * (1 - thin)
+		end
+	end,
+	part = function(r, t, c)
+		local S = c.size
+		local M = KAME_MUZZLE * S
+		local move, fire, thin = kamehameha(t)
+		local p = r.prefix
+		if p == "Aura" then
+			-- a ki aura flaring up round the user, flickering like flame
+			local e = outQuart(phase(t, 0, 0.4))
+			local flicker = 1 + 0.05 * math.sin(t * 23) + 0.03 * math.sin(t * 41)
+			return {
+				scale = Vector3.new(math.max(e * flicker, 0.01), math.max(e * (1 + 0.08 * math.sin(t * 17)), 0.01), math.max(e * flicker, 0.01)),
+				pivot = Vector3.zero,
+				alpha = (0.7 + 0.3 * math.sin(t * 13)) * (1 - phase(t, 4.8, 5.6)),
+			}
+		elseif p == "Cracks" then
+			return { scale = flat(outQuart(phase(t, 0.3, 1.2))), pivot = Vector3.zero, alpha = 1 - phase(t, 5.4, 6.2) }
+		elseif p == "Rocks" then
+			-- lifted by the gathering energy, blasted outwards on release, dropped at the end
+			local lift = outQuad(phase(t, 0.3, 1.8))
+			local blown = outQuad(phase(t, 2.2, 2.6))
+			local fall = inQuad(phase(t, 4.8, 5.4))
+			local shake = (1 - blown) * math.sin(t * 37) * 0.05 * S
+			return {
+				scale = flat(1 + 0.8 * blown),
+				pivot = Vector3.zero,
+				rot = CFrame.Angles(0, t * 0.35, 0),
+				rotPivot = Vector3.zero,
+				offset = Vector3.new(shake, (lift - 1) * 2 * S + 0.15 * S * math.sin(t * 3) - 3 * S * fall, 0),
+				alpha = phase(t, 0.3, 0.5) * (1 - phase(t, 5.0, 5.6)),
+			}
+		elseif p == "Ball" or p == "BallGlow" then
+			local grow = 0.15 + 0.85 * outQuad(phase(t, 0.2, 2.0))
+			local s = grow * (1 + 0.08 * math.sin(t * 25)) * (1 - inQuad(phase(t, 4.6, 5.0)))
+			return {
+				scale = math.max(s, 0.01),
+				pivot = M,
+				offset = (KAME_HIP - KAME_MUZZLE) * S * (1 - move),
+				alpha = phase(t, 0.2, 0.4),
+			}
+		end
+		if t < 2.2 then
+			return { alpha = 0 }
+		end
+		local width = (1 + 0.04 * math.sin(t * 31)) * (1 - thin)
+		if p == "Head" then
+			-- the head rides the front of the beam as it races out
+			return {
+				scale = math.max((0.5 + 0.5 * fire) * (1 + 0.06 * math.sin(t * 19)) * (1 - thin), 0.01),
+				pivot = r.pos,
+				offset = Vector3.new(0, 0, (1 - fire) * KAME_LENGTH * S),
+				alpha = 1 - phase(t, 4.8, 5.2),
+			}
+		elseif p == "Rings" then
+			local e = outQuart(phase(t, 2.2, 2.8))
+			return { scale = 0.3 + 1.2 * e, pivot = M, offset = Vector3.new(0, 0, -4 * S * e), alpha = 1 - phase(t, 2.4, 3.0) }
+		end
+		-- Beam / BeamGlow / BeamAura / BeamCoils
+		local state = {
+			scale = Vector3.new(math.max(width, 0.01), math.max(width, 0.01), math.max(fire, 0.01)),
+			pivot = M,
+			alpha = 1 - phase(t, 4.9, 5.3),
+		}
+		if p == "BeamCoils" then
+			state.rot = CFrame.Angles(0, 0, t * 9)
+			state.rotPivot = M
+		elseif p == "BeamAura" then
+			state.alpha *= 0.75 + 0.25 * math.sin(t * 21)
+		end
+		return state
 	end,
 }
 
