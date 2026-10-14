@@ -92,7 +92,7 @@ doing your hit detection the way you do now and use `onArrive` to time the impac
 
 `Ultimates/` holds an animated ultimate for Rift, Electric, Fire, Ice, Wind, Void, Earth, Water and
 Energy (rift tear, thunderstorm, flamethrower, ice wall, wind clap, black hole, earthsplitter, tidal
-wave, Kamehameha), played by `ElementUltimates.lua`. See
+wave, Spirit Bomb), played by `ElementUltimates.lua`. See
 [`Ultimates/README.md`](Ultimates/README.md).
 
 ## Changing the models

@@ -19,7 +19,7 @@ fire, smoke, mist and sparks on top, which Blender can't preview.*
 | **Void** | Black hole | A black hole implodes into being, the accretion disc unfurls and spins, polar jets shoot up and down, and debris spirals in and gets crushed. It snaps shut with a flash | 8 s |
 | **Earth** | Earthsplitter | The stomp throws up dust and rock chips, a molten fissure rips 30 studs forwards, slabs of ground heave up and tilt away from it, jagged spires erupt from the crack, boulders tear loose and float round the user, then slam down as everything sinks back | 6.8 s |
 | **Water** | Tidal wave | A wall of water surges up out of the ground in front of the user, rolls forwards curling over with foam on its lip and spray flying, then crashes down in a burst of droplets and mist and spreads out as foam | 6.5 s |
-| **Energy** | Kamehameha | Energy gathers into a ball at the hip while a ki aura blazes, the ground cracks and rocks lift into the air. Then the thrust: the ball snaps to the front, shockwave rings punch out and a huge beam blasts 60 studs forwards with its bulbous head, ripping up dust along the ground, before it thins away | 6.2 s |
+| **Energy** | Spirit Bomb | The user raises their arms as a ki aura blazes and rocks lift off the ground. Threads of energy stream in from all around and motes drift inward, feeding a colossal glowing sphere that swells 15 studs overhead with currents churning over it. The bomb is hurled and crawls forwards in an arc, gathering speed, then lands 32 studs ahead and detonates: a huge energy dome, a ground shockwave, cracks, a burst of sparks, debris and a towering cloud of dust | 9.2 s |
 
 ## Setup in Studio
 
@@ -42,7 +42,7 @@ ElementUltimates.play("Fire", ElementUltimates.feet(character), {
 	color = Color3.fromRGB(80, 160, 255), -- blue fire
 })
 
--- a golden Kamehameha
+-- a golden Spirit Bomb
 ElementUltimates.play("Energy", ElementUltimates.feet(character), {
 	color = Color3.fromRGB(255, 215, 70),
 })

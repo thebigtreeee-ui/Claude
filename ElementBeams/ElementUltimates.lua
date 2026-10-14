@@ -83,17 +83,16 @@ ElementUltimates.Styles = {
 		Foam = style(230, 242, 250, Smooth, 0.35),
 	},
 	Energy = {
-		Beam = style(255, 255, 255, Neon),
-		BeamGlow = style(90, 200, 255, Neon, 0.35),
-		BeamAura = style(40, 140, 255, ForceField, 0),
-		BeamCoils = style(160, 230, 255, Neon, 0.25),
-		Head = style(110, 210, 255, Neon, 0.3),
-		Ball = style(255, 255, 255, Neon),
-		BallGlow = style(90, 200, 255, Neon, 0.3),
-		Rings = style(190, 235, 255, Neon, 0.4),
+		Bomb = style(255, 255, 255, Neon),
+		BombGlow = style(120, 210, 255, Neon, 0.3),
+		BombAura = style(80, 170, 255, ForceField, 0),
+		Swirl = style(190, 235, 255, Neon, 0.2),
+		Streams = style(150, 220, 255, Neon, 0.4),
 		Aura = style(90, 200, 255, ForceField, 0),
-		Cracks = style(150, 220, 255, Neon, 0.2),
 		Rocks = style(105, 95, 85, Enum.Material.Slate),
+		Dome = style(140, 215, 255, ForceField, 0),
+		Shockwave = style(200, 240, 255, Neon, 0.35),
+		Cracks = style(150, 220, 255, Neon, 0.2),
 	},
 }
 
@@ -108,7 +107,7 @@ ElementUltimates.Recolorable = {
 	Void = { "Disk", "DiskOuter", "Jets", "Ring", "Horizon" },
 	Earth = { "Fissure" },
 	Water = { "Wave", "Swirl" },
-	Energy = { "BeamGlow", "BeamAura", "BeamCoils", "Head", "BallGlow", "Rings", "Aura", "Cracks" },
+	Energy = { "BombGlow", "BombAura", "Swirl", "Streams", "Aura", "Dome", "Shockwave", "Cracks" },
 }
 
 -- ---------------------------------------------------------------- easing
@@ -1003,50 +1002,45 @@ Animations.Water = {
 	end,
 }
 
--- Kamehameha: charge at the hip, thrust forwards, fire
-local KAME_MUZZLE = Vector3.new(0, 3.6, -1.4) -- where the beam leaves the hands (model space, size 1)
-local KAME_HIP = Vector3.new(1.3, 2.6, 0.2) -- where the ball is gathered while charging
-local KAME_LENGTH = 60
+-- Spirit Bomb: gather energy into a giant sphere overhead, hurl it, detonate
+local BOMB_HOME = Vector3.new(0, 15, 0) -- where the bomb gathers (model space, size 1)
+local BOMB_LAND = Vector3.new(0, 2, -32) -- where its centre ends up when it lands
+local IMPACT = Vector3.new(0, 0, -32) -- the detonation point on the ground
 
-local function kamehameha(t)
-	local move = outQuart(phase(t, 2.0, 2.2)) -- ball thrust from the hip to the front
-	local fire = outQuart(phase(t, 2.2, 2.5)) -- beam racing out to full length
-	local thin = inQuad(phase(t, 4.6, 5.2)) -- beam collapsing to nothing
-	return move, fire, thin
+local function spiritBomb(t)
+	local grow = outQuad(phase(t, 0.5, 4.5)) -- the bomb swells as energy pours in
+	local flight = phase(t, 5.0, 7.0) ^ 2 -- crawls forwards at first, then gathers speed
+	local boom = outQuart(phase(t, 7.0, 7.6)) -- the detonation dome swelling
+	return grow, flight, boom
+end
+
+local function bombOffset(flight, size)
+	local path = BOMB_HOME:Lerp(BOMB_LAND, flight) + Vector3.new(0, math.sin(math.pi * flight) * 4, 0)
+	return (path - BOMB_HOME) * size
 end
 
 Animations.Energy = {
-	duration = 6.2,
+	duration = 9.2,
 	setup = function(c)
 		local S = c.size
-		local tint = c.color or rgb(90, 200, 255)
-		c.ball = holder(c, CFrame.new(KAME_HIP * S), Vector3.new(6, 6, 6) * S)
-		c.gather = emitter(c.ball, {
+		local tint = c.color or rgb(120, 210, 255)
+		c.bomb = holder(c, CFrame.new(BOMB_HOME * S), Vector3.new(60, 60, 60) * S)
+		c.gather = emitter(c.bomb, {
 			Texture = TEXTURE.Spark,
 			Color = colors({ { 0, tint }, { 1, rgb(255, 255, 255) } }),
 			LightEmission = 1,
-			Size = numbers({ { 0, 0.3 }, { 1, 0.05 } }, S),
-			Lifetime = NumberRange.new(0.3, 0.5),
-			Speed = NumberRange.new(6 * S, 10 * S),
-			Rate = 90,
+			Size = numbers({ { 0, 0.5 }, { 1, 0.15 } }, S),
+			Lifetime = NumberRange.new(1.2, 1.8),
+			Speed = NumberRange.new(18 * S, 26 * S),
+			Rate = 120,
 		})
-		-- energy streams *into* the ball from all around (falls back to bursting outwards on old clients)
+		-- motes of energy drift *into* the bomb from all around (bursts outwards on old clients)
 		pcall(function()
 			c.gather.Shape = Enum.ParticleEmitterShape.Sphere
 			c.gather.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
 			c.gather.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
 		end)
-		c.release = emitter(c.ball, {
-			Texture = TEXTURE.Spark,
-			Color = colors({ { 0, rgb(255, 255, 255) }, { 1, tint } }),
-			LightEmission = 1,
-			Size = numbers({ { 0, 0.6 }, { 1, 0 } }, S),
-			Lifetime = NumberRange.new(0.3, 0.7),
-			Speed = NumberRange.new(30 * S, 60 * S),
-			SpreadAngle = Vector2.new(180, 180),
-			Drag = 3,
-		})
-		c.ballLight = light(c.ball, tint, 25 * S)
+		c.bombLight = light(c.bomb, tint, 60 * S)
 
 		local feet = holder(c, CFrame.new(c.v(0, 0.3, 0)), Vector3.new(3, 0.4, 3) * S)
 		c.auraSparks = emitter(feet, {
@@ -1062,49 +1056,64 @@ Animations.Energy = {
 		})
 		c.auraLight = light(holder(c, CFrame.new(c.v(0, 3, 0))), tint, 18 * S)
 
-		local path = holder(c, CFrame.new(c.v(0, 0.5, -31)), Vector3.new(8, 1, 56) * S)
-		c.trench = emitter(path, {
+		local impact = holder(c, CFrame.new(IMPACT * S + Vector3.new(0, 1, 0) * S), Vector3.new(6, 2, 6) * S)
+		c.blast = emitter(impact, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(255, 255, 255) }, { 1, tint } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 1.2 }, { 1, 0 } }, S),
+			Lifetime = NumberRange.new(0.5, 1.2),
+			Speed = NumberRange.new(40 * S, 90 * S),
+			SpreadAngle = Vector2.new(90, 90),
+			EmissionDirection = Enum.NormalId.Top,
+			Drag = 2,
+		})
+		c.dust = emitter(impact, {
 			Texture = TEXTURE.Smoke,
-			Color = colors({ { 0, rgb(150, 140, 125) }, { 1, rgb(110, 104, 95) } }),
-			Size = numbers({ { 0, 3 }, { 1, 9 } }, S),
-			Transparency = numbers({ { 0, 0.5 }, { 1, 1 } }),
-			Lifetime = NumberRange.new(1, 1.8),
-			Speed = NumberRange.new(4 * S, 10 * S),
-			SpreadAngle = Vector2.new(50, 50),
+			Color = colors({ { 0, rgb(160, 150, 140) }, { 1, rgb(110, 104, 98) } }),
+			Size = numbers({ { 0, 6 }, { 1, 18 } }, S),
+			Transparency = numbers({ { 0, 0.35 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1.5, 2.5),
+			Speed = NumberRange.new(10 * S, 25 * S),
+			SpreadAngle = Vector2.new(80, 80),
 			EmissionDirection = Enum.NormalId.Top,
 			RotSpeed = NumberRange.new(-30, 30),
-			Rate = 45,
+			Drag = 2,
 		})
-		c.beamLights = {}
-		for _, z in { -15, -35, -55 } do
-			table.insert(c.beamLights, light(holder(c, CFrame.new(c.v(0, 3.6, z))), tint, 30 * S))
-		end
+		c.debris = emitter(impact, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(150, 135, 115) }, { 1, rgb(95, 85, 75) } }),
+			LightEmission = 0,
+			Size = numbers({ { 0, 0.7 }, { 1, 0.3 } }, S),
+			Lifetime = NumberRange.new(0.8, 1.5),
+			Speed = NumberRange.new(30 * S, 55 * S),
+			SpreadAngle = Vector2.new(60, 60),
+			EmissionDirection = Enum.NormalId.Top,
+			Acceleration = Vector3.new(0, -60 * S, 0),
+			RotSpeed = NumberRange.new(-200, 200),
+		})
+		c.impactLight = light(impact, tint, 80 * S)
 	end,
 	frame = function(t, c)
 		local S = c.size
-		local move, fire, thin = kamehameha(t)
-		c.ball.CFrame = c.frame * CFrame.new((KAME_HIP:Lerp(KAME_MUZZLE, move)) * S)
-		c.gather.Enabled = t > 0.2 and t < 2.0
-		c.auraSparks.Enabled = t > 0.1 and t < 4.8
-		c.trench.Enabled = t > 2.3 and t < 4.7
-		once(c, "release", t, 2.2, function()
-			c.release:Emit(150)
+		local grow, flight = spiritBomb(t)
+		c.bomb.CFrame = c.frame * CFrame.new(BOMB_HOME * S + bombOffset(flight, S))
+		c.gather.Enabled = t > 0.4 and t < 4.8
+		c.auraSparks.Enabled = t > 0.1 and t < 5.0
+		once(c, "detonate", t, 7.0, function()
+			c.blast:Emit(250)
+			c.dust:Emit(60)
+			c.debris:Emit(90)
 		end)
-		local charge = outQuad(phase(t, 0.2, 2.0))
-		local flash = math.max(0, 1 - math.abs(t - 2.25) / 0.2)
-		c.ballLight.Brightness = (2 + 3 * charge) * (1 - phase(t, 4.6, 5.0)) + 10 * flash
+		c.bombLight.Brightness = (1 + 4 * grow) * (1 - phase(t, 6.9, 7.1))
 		c.auraLight.Brightness = 2 * outQuart(phase(t, 0, 0.4)) * (1 - phase(t, 4.8, 5.6))
-		for _, l in c.beamLights do
-			l.Brightness = 4 * fire * (1 - thin)
-		end
+		c.impactLight.Brightness = 14 * phase(t, 6.95, 7.05) * (1 - phase(t, 7.1, 8.4))
 	end,
 	part = function(r, t, c)
 		local S = c.size
-		local M = KAME_MUZZLE * S
-		local move, fire, thin = kamehameha(t)
+		local grow, flight, boom = spiritBomb(t)
 		local p = r.prefix
 		if p == "Aura" then
-			-- a ki aura flaring up round the user, flickering like flame
 			local e = outQuart(phase(t, 0, 0.4))
 			local flicker = 1 + 0.05 * math.sin(t * 23) + 0.03 * math.sin(t * 41)
 			return {
@@ -1112,61 +1121,46 @@ Animations.Energy = {
 				pivot = Vector3.zero,
 				alpha = (0.7 + 0.3 * math.sin(t * 13)) * (1 - phase(t, 4.8, 5.6)),
 			}
-		elseif p == "Cracks" then
-			return { scale = flat(outQuart(phase(t, 0.3, 1.2))), pivot = Vector3.zero, alpha = 1 - phase(t, 5.4, 6.2) }
 		elseif p == "Rocks" then
-			-- lifted by the gathering energy, blasted outwards on release, dropped at the end
-			local lift = outQuad(phase(t, 0.3, 1.8))
-			local blown = outQuad(phase(t, 2.2, 2.6))
-			local fall = inQuad(phase(t, 4.8, 5.4))
-			local shake = (1 - blown) * math.sin(t * 37) * 0.05 * S
+			local lift = outQuad(phase(t, 0.3, 2.0))
+			local fall = inQuad(phase(t, 5.0, 5.6))
 			return {
-				scale = flat(1 + 0.8 * blown),
-				pivot = Vector3.zero,
-				rot = CFrame.Angles(0, t * 0.35, 0),
+				rot = CFrame.Angles(0, t * 0.3, 0),
 				rotPivot = Vector3.zero,
-				offset = Vector3.new(shake, (lift - 1) * 2 * S + 0.15 * S * math.sin(t * 3) - 3 * S * fall, 0),
-				alpha = phase(t, 0.3, 0.5) * (1 - phase(t, 5.0, 5.6)),
+				offset = Vector3.new(math.sin(t * 37) * 0.04 * S, (lift - 1) * 2 * S + 0.15 * S * math.sin(t * 3) - 4 * S * fall, 0),
+				alpha = phase(t, 0.3, 0.5) * (1 - phase(t, 5.2, 5.8)),
 			}
-		elseif p == "Ball" or p == "BallGlow" then
-			local grow = 0.15 + 0.85 * outQuad(phase(t, 0.2, 2.0))
-			local s = grow * (1 + 0.08 * math.sin(t * 25)) * (1 - inQuad(phase(t, 4.6, 5.0)))
-			return {
-				scale = math.max(s, 0.01),
-				pivot = M,
-				offset = (KAME_HIP - KAME_MUZZLE) * S * (1 - move),
-				alpha = phase(t, 0.2, 0.4),
+		elseif p == "Streams" then
+			-- threads of energy pouring in from all around, flickering, gone once the bomb is thrown
+			return { alpha = phase(t, 0.3, 1.5) * (0.7 + 0.3 * math.sin(t * 11)) * (1 - phase(t, 4.6, 5.2)) }
+		elseif p == "Bomb" or p == "BombGlow" or p == "BombAura" or p == "Swirl" then
+			-- swells overhead, is hurled forwards in an arc, and is swallowed by its own explosion
+			local swallow = 1 - inQuad(phase(t, 7.0, 7.3))
+			local pulse = 1 + 0.03 * math.sin(t * 6) + (p == "BombAura" and 0.04 * math.sin(t * 19) or 0)
+			local state = {
+				scale = math.max((0.04 + 0.96 * grow) * pulse * swallow, 0.01),
+				pivot = BOMB_HOME * S,
+				offset = bombOffset(flight, S),
+				alpha = phase(t, 0.4, 0.8),
 			}
+			if p == "Swirl" then
+				state.rot = CFrame.Angles(t * 0.4, t * 0.9, 0)
+				state.rotPivot = BOMB_HOME * S
+			end
+			return state
 		end
-		if t < 2.2 then
+		-- the detonation
+		if t < 7.0 then
 			return { alpha = 0 }
 		end
-		local width = (1 + 0.04 * math.sin(t * 31)) * (1 - thin)
-		if p == "Head" then
-			-- the head rides the front of the beam as it races out
-			return {
-				scale = math.max((0.5 + 0.5 * fire) * (1 + 0.06 * math.sin(t * 19)) * (1 - thin), 0.01),
-				pivot = r.pos,
-				offset = Vector3.new(0, 0, (1 - fire) * KAME_LENGTH * S),
-				alpha = 1 - phase(t, 4.8, 5.2),
-			}
-		elseif p == "Rings" then
-			local e = outQuart(phase(t, 2.2, 2.8))
-			return { scale = 0.3 + 1.2 * e, pivot = M, offset = Vector3.new(0, 0, -4 * S * e), alpha = 1 - phase(t, 2.4, 3.0) }
+		local ground = IMPACT * S
+		if p == "Dome" then
+			return { scale = math.max(0.08 + 0.92 * boom, 0.01), pivot = ground, alpha = 1 - phase(t, 7.6, 8.7) }
+		elseif p == "Shockwave" then
+			return { scale = flat(0.1 + 1.6 * outQuart(phase(t, 7.0, 7.9))), pivot = ground, alpha = 1 - phase(t, 7.3, 8.3) }
+		else -- Cracks
+			return { scale = flat(outQuart(phase(t, 7.0, 7.3))), pivot = ground, alpha = 1 - phase(t, 8.4, 9.2) }
 		end
-		-- Beam / BeamGlow / BeamAura / BeamCoils
-		local state = {
-			scale = Vector3.new(math.max(width, 0.01), math.max(width, 0.01), math.max(fire, 0.01)),
-			pivot = M,
-			alpha = 1 - phase(t, 4.9, 5.3),
-		}
-		if p == "BeamCoils" then
-			state.rot = CFrame.Angles(0, 0, t * 9)
-			state.rotPivot = M
-		elseif p == "BeamAura" then
-			state.alpha *= 0.75 + 0.25 * math.sin(t * 21)
-		end
-		return state
 	end,
 }
 

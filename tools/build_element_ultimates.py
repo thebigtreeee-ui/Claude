@@ -603,89 +603,93 @@ def ult_water(col):
     finish(bm, "Foam", col, material("WaterFoam", rgb(230, 242, 250), 0.4, alpha=0.7), smooth=False)
 
 
-# ---------------------------------------------------------------- Energy: a Kamehameha
+# ---------------------------------------------------------------- Energy: a Spirit Bomb
 
 
 def ult_energy(col):
-    rng = random.Random(310)
-    M = Vector((0, 1.4, 3.6))  # the muzzle: hands thrust forwards at chest height
-    beam_len = 60.0
+    rng = random.Random(311)
+    B = Vector((0, 0, 15))  # the bomb gathers high above the user's raised hands
+    I = Vector((0, 32, 0))  # where it lands
     X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
 
-    def beam_points(steps=80):
-        return [M + Y * (beam_len * i / steps) for i in range(steps + 1)]
-
-    pts = beam_points()
-    bm = bmesh.new()
-    tube(bm, pts, [1.25] * 80 + [0.0], sides=24)
-    finish(bm, "Beam", col, material("EnergyCore", rgb(255, 255, 255), 8))
+    def pole_dir(polar, azimuth):
+        s = math.sin(polar)
+        return Vector((s * math.cos(azimuth), s * math.sin(azimuth), math.cos(polar)))
 
     bm = bmesh.new()
-    tube(bm, pts, [2.1 + 0.12 * math.sin(i * 1.1) for i in range(80)] + [0.0], sides=24)
-    finish(bm, "BeamGlow", col, material("EnergyGlow", rgb(90, 200, 255), 3, alpha=0.5))
+    ico(bm, B, 4.5, subdiv=4, bumps=0.02)
+    finish(bm, "Bomb", col, material("EnergyCore", rgb(255, 255, 255), 8))
 
     bm = bmesh.new()
-    rings = []
-    for i, p in enumerate(pts):
-        ring = []
-        for k in range(28):
-            a = 2 * math.pi * k / 28
-            r = (3.1 + 0.3 * math.sin(i * 0.7 + a * 3) + 0.2 * n3(Vector((math.cos(a), i * 0.15, math.sin(a))), 2)) * min(1.0, (80 - i) / 3 + 0.02)
-            ring.append(p + (X * math.cos(a) + Z * math.sin(a)) * r)
-        rings.append(ring)
-    loft(bm, rings)
-    finish(bm, "BeamAura", col, material("EnergyAura", rgb(40, 140, 255), 1, alpha=0.2))
+    ico(bm, B, 6.0, subdiv=4, bumps=0.05, seed=2)
+    finish(bm, "BombGlow", col, material("EnergyGlow", rgb(120, 210, 255), 3, alpha=0.5))
 
     bm = bmesh.new()
-    for k in range(3):
-        path = [M + Y * (beam_len * t) + (X * math.cos(k * 2.09 + t * 2 * math.pi * 9) + Z * math.sin(k * 2.09 + t * 2 * math.pi * 9)) * 2.6 for t in (i / 300 for i in range(301))]
-        tube(bm, path, [0.0] + [0.11] * 299 + [0.0], sides=6)
-    finish(bm, "BeamCoils", col, material("EnergyCoils", rgb(160, 230, 255), 3))
+    ico(bm, B, 7.4, subdiv=4, bumps=0.12, seed=6)
+    finish(bm, "BombAura", col, material("EnergyAura", rgb(80, 170, 255), 1, alpha=0.2))
 
-    bm = bmesh.new()  # the bulbous head blasting out in front of the beam
-    ico(bm, M + Y * beam_len, 4.2, subdiv=4, squash=(1, 1.15, 1), bumps=0.08, seed=4)
-    finish(bm, "Head", col, material("EnergyHead", rgb(110, 210, 255), 3, alpha=0.55))
+    bm = bmesh.new()  # currents of energy churning over the bomb's surface
+    for k in range(7):
+        pts, widths = [], []
+        for i in range(61):
+            t = i / 60
+            pts.append(B + pole_dir(math.radians(8 + 164 * t), 2 * math.pi * k / 7 + t * 2 * math.pi * 1.4) * 6.3)
+            widths.append(0.35 * math.sin(math.pi * t) + 0.02)
+        rings = []
+        for i, p in enumerate(pts):
+            nrm = (p - B).normalized()
+            tang = (pts[min(i + 1, 60)] - pts[max(i - 1, 0)]).normalized()
+            side = tang.cross(nrm).normalized()
+            rings.append([p + side * widths[i], p + nrm * 0.05, p - side * widths[i], p - nrm * 0.05])
+        loft(bm, rings)
+    finish(bm, "Swirl", col, material("EnergySwirl", rgb(190, 235, 255), 3))
 
-    bm = bmesh.new()
-    ico(bm, M, 0.95, subdiv=4, bumps=0.03)
-    finish(bm, "Ball", col, material("EnergyCore", rgb(255, 255, 255), 8))
+    bm = bmesh.new()  # threads of energy flowing in from everywhere around
+    for k in range(24):
+        a = 2 * math.pi * k / 24 + rng.uniform(-0.12, 0.12)
+        r = rng.uniform(26, 42)
+        start = Vector((math.cos(a) * r, math.sin(a) * r, rng.choice((0.2, rng.uniform(2, 22)))))
+        bend = Vector((math.cos(a + 1.2) * 6, math.sin(a + 1.2) * 6, rng.uniform(4, 12)))
+        ctrl = start.lerp(B, 0.5) + bend
+        pts = [start * (1 - t) ** 2 + ctrl * 2 * (1 - t) * t + B * t * t for t in (i / 40 for i in range(41))]
+        tube(bm, pts, [0.05 + 0.13 * (i / 40) for i in range(41)], sides=5)
+    finish(bm, "Streams", col, material("EnergyStreams", rgb(150, 220, 255), 2, alpha=0.6))
 
-    bm = bmesh.new()
-    ico(bm, M, 1.6, subdiv=4, bumps=0.12, seed=8)
-    finish(bm, "BallGlow", col, material("EnergyGlow", rgb(90, 200, 255), 3, alpha=0.5))
-
-    bm = bmesh.new()  # shockwave rings punched out at the moment of release
-    for d, r in ((1.0, 2.6), (3.0, 3.6), (5.5, 4.4)):
-        revolve(bm, M + Y * d, X, Z, Y, [(r - 0.15, 0), (r, 0.12), (r + 0.25, 0), (r, -0.06)], n=56)
-    finish(bm, "Rings", col, material("EnergyRings", rgb(190, 235, 255), 2, alpha=0.6))
-
-    bm = bmesh.new()  # the ki aura blazing round the user while charging
+    bm = bmesh.new()  # the ki aura blazing round the user while they gather it
     rings = []
     for i in range(31):
         t = i / 30
-        z = 7.5 * t
         ring = []
         for k in range(32):
             a = 2 * math.pi * k / 32
             spike = 0.35 * abs(math.sin(a * 4 + t * 3)) ** 3
             r = (1.6 + 0.4 * math.sin(math.pi * min(t * 1.6, 1))) * (1 - t ** 3) + spike * t
-            ring.append(Vector((math.cos(a) * r, math.sin(a) * r * 0.8, z)))
+            ring.append(Vector((math.cos(a) * r, math.sin(a) * r * 0.8, 7.5 * t)))
         rings.append(ring)
     loft(bm, rings)
     finish(bm, "Aura", col, material("EnergyAuraBody", rgb(90, 200, 255), 1.5, alpha=0.3))
 
-    bm = bmesh.new()  # the ground cracking under the pressure
-    for k in range(11):
-        a = 2 * math.pi * k / 11 + rng.uniform(-0.2, 0.2)
-        angular_crack(bm, Vector((math.cos(a) * 0.8, math.sin(a) * 0.8, 0.03)), Vector((math.cos(a) * rng.uniform(4, 7), math.sin(a) * rng.uniform(4, 7), 0.03)), rng, segments=4, wander=0.3, r=0.06)
-    finish(bm, "Cracks", col, material("EnergyCracks", rgb(150, 220, 255), 3), smooth=False)
-
     bm = bmesh.new()  # chunks of ground lifted by the gathering energy
     for _ in range(26):
         a = rng.uniform(0, 2 * math.pi)
-        r = rng.uniform(2, 6.5)
-        rock(bm, rng, Vector((math.cos(a) * r, math.sin(a) * r, rng.uniform(0.5, 3.5))), rng.uniform(0.15, 0.45), jitter=0.45)
+        r = rng.uniform(2, 7)
+        rock(bm, rng, Vector((math.cos(a) * r, math.sin(a) * r, rng.uniform(0.5, 4))), rng.uniform(0.15, 0.45), jitter=0.45)
     finish(bm, "Rocks", col, material("EnergyRocks", rgb(105, 95, 85), rough=0.95), smooth=False)
+
+    bm = bmesh.new()  # the detonation: a dome of energy swelling out of the impact
+    ico(bm, I, 14, subdiv=4, squash=(1, 1, 0.8), bumps=0.06, seed=9)
+    finish(bm, "Dome", col, material("EnergyDome", rgb(140, 215, 255), 1.5, alpha=0.35))
+
+    bm = bmesh.new()
+    revolve(bm, I + Z * 0.2, X, Y, Z, [(7.0, 0.0), (8.2, 0.35), (9.5, 0.0), (8.2, 0.1)], n=72)
+    finish(bm, "Shockwave", col, material("EnergyShock", rgb(200, 240, 255), 2, alpha=0.6))
+
+    bm = bmesh.new()
+    for k in range(16):
+        a = 2 * math.pi * k / 16 + rng.uniform(-0.15, 0.15)
+        d = Vector((math.cos(a), math.sin(a), 0))
+        angular_crack(bm, I + d * 2 + Z * 0.03, I + d * rng.uniform(9, 15) + Z * 0.03, rng, segments=5, wander=0.3, r=0.08)
+    finish(bm, "Cracks", col, material("EnergyCracks", rgb(150, 220, 255), 3), smooth=False)
 
 
 ULTIMATES = {
@@ -697,7 +701,7 @@ ULTIMATES = {
     "Void": (ult_void, (-22, -10, 14), (0, 16, 8)),
     "Earth": (ult_earth, (-25, -7, 17), (0, 14, 3)),
     "Water": (ult_water, (-30, -10, 11), (0, 6, 6)),
-    "Energy": (ult_energy, (-24, -14, 14), (0, 18, 3)),
+    "Energy": (ult_energy, (-40, -26, 22), (0, 12, 8)),
 }
 
 
