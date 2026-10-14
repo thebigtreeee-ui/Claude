@@ -109,6 +109,9 @@ Every aura gets the same 3.5-second transformation spine, plus its own build-up 
 
 **Everyone else** sees all the effects, but their camera is never touched.
 
+Preview of all ten as the transforming player sees them: [Transformations.mp4](previews/Transformations.mp4).
+It's rendered outside Roblox from the module's own frame-by-frame output: real textures, a plain dummy, no animations.
+
 | Aura | Build-up | Finish |
 |---|---|---|
 | Limit Breaker | Lightning strikes down faster and faster, arcs crawl over the ground from the feet | A giant strike with four side bolts |
