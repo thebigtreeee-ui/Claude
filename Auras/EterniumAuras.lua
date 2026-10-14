@@ -228,7 +228,13 @@ function Aura:emitter(att, tex, props, role, stage, shade, burst)
 	e.Rotation = NumberRange.new(0, 360)
 	e.Enabled = false
 	for key, value in props do
-		e[key] = value
+		if key == "Squash" then
+			pcall(function()
+				e.Squash = value -- newer property: stretches the square particle into a streak
+			end)
+		else
+			e[key] = value
+		end
 	end
 	e.Parent = att
 	shade = shade or DEFAULT_SHADE
@@ -368,39 +374,44 @@ end
 
 -- ---------------------------------------------------------------- 1. Limit Breaker: a rising helix of power
 -- Signature: ribbons of light spiral up round the body like a drill of energy, chevrons of power rise
--- off the feet, and the light throbs twice a second. Stage 2: more, taller, faster ribbons and
--- pressure rings bursting out along the ground.
+-- off the feet, and the light throbs twice a second. Stage 2: twice the ribbons, taller and faster,
+-- and pressure rings bursting out along the ground.
 
 Designs.LimitBreaker = {
 	build = function(self)
 		self.helix = {}
-		for i = 1, 6 do
+		for i = 1, 8 do
 			local a0 = self:attach("Root")
 			local a1 = self:attach("Root")
 			local tr = self:trail(a0, a1, "LB_Trail", {
-				Lifetime = 0.35,
+				Lifetime = 0.6,
 				LightEmission = 1,
 				MinLength = 0.05,
 				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
 				WidthScale = numbers({ { 0, 1 }, { 1, 0.2 } }),
-			}, "Main", i <= 3 and 0 or 2, { { 0, 0.55 }, { 1, 0 } })
-			table.insert(self.helix, { a0 = a0, a1 = a1, trail = tr, phase = (i - 1) * math.pi * 2 / 3 + (i > 3 and math.pi / 3 or 0), offset = (i - 1) / 6 })
+			}, "Main", i <= 4 and 0 or 2, { { 0, 0.55 }, { 1, 0 } })
+			table.insert(self.helix, { a0 = a0, a1 = a1, trail = tr, offset = ((i - 1) % 4) / 4 + (i > 4 and 0.125 or 0) })
+			-- spread the ribbons round the body: compensate for the turn each one makes while rising, so they
+			-- wind on separate spirals instead of chasing each other along one
+			local h = self.helix[#self.helix]
+			h.phase = ((i - 1) % 4) * math.pi / 2 + (i > 4 and math.pi / 4 or 0) + h.offset * (5 / 0.75)
 		end
 		for _, slot in EXTREMITIES do
 			self:emitter(self:attach(slot, self:endOf(slot)), "LB_Streak", {
 				Orientation = Enum.ParticleOrientation.VelocityParallel,
-				Size = numbers({ { 0, 0.5 }, { 1, 0.15 } }),
+				Squash = numbers({ { 0, 2 }, { 1, 2 } }),
+				Size = numbers({ { 0, 0.7 }, { 1, 0.2 } }),
 				Transparency = numbers({ { 0, 0.2 }, { 1, 1 } }),
 				Lifetime = NumberRange.new(0.35, 0.6),
 				Speed = NumberRange.new(7, 11),
 				SpreadAngle = Vector2.new(12, 12),
 				EmissionDirection = Enum.NormalId.Top,
 				LightEmission = 1,
-				Rate = 14,
+				Rate = 18,
 			}, "Main")
 		end
 		self.chevrons = self:emitter(self:attach("Root", Vector3.new(0, -2.6, 0)), "LB_Chevron", {
-			Size = numbers({ { 0, 0.35 }, { 0.5, 0.45 }, { 1, 0 } }),
+			Size = numbers({ { 0, 0.5 }, { 0.5, 0.65 }, { 1, 0 } }),
 			Transparency = numbers({ { 0, 1 }, { 0.15, 0.1 }, { 1, 1 } }),
 			Lifetime = NumberRange.new(0.8, 1.3),
 			Speed = NumberRange.new(4, 7),
@@ -455,7 +466,7 @@ Designs.LimitBreaker = {
 				local y = -2.8 + cycle * height
 				local pos = Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
 				h.a0.Position = pos
-				h.a1.Position = pos + Vector3.new(0, 0.25 + 0.25 * (1 - cycle), 0)
+				h.a1.Position = pos + Vector3.new(0, 0.08 + 0.14 * (1 - cycle), 0)
 			end
 		end
 		self.light.Brightness = 1.4 + 0.8 * math.sin(t * math.pi * 4)
