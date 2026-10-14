@@ -226,7 +226,7 @@ function Ctx:bolt(from, to, width, color, life, branches)
 				table.insert(segments, self:part({
 					Material = Enum.Material.Neon,
 					Color = glow and color or tone(color, 0.7),
-					Transparency = glow and 0.7 or 0,
+					Transparency = glow and 0.8 or 0,
 					Size = Vector3.new(w, w, len + w * 0.5),
 					CFrame = CFrame.lookAt((a + b) / 2, b),
 				}))
@@ -238,7 +238,7 @@ function Ctx:bolt(from, to, width, color, life, branches)
 	local main = path(from, to, length > 24 and 4 or length > 8 and 3 or 2, 0.2)
 	draw(main, width, false)
 	if width >= 0.25 then
-		draw(main, width * 3.2, true)
+		draw(main, width * 2.2, true)
 	end
 	for _ = 1, branches or 2 do
 		local s = main[rng:NextInteger(2, #main - 1)]
@@ -251,7 +251,8 @@ function Ctx:bolt(from, to, width, color, life, branches)
 		local hidden = (age > 0.04 and age < 0.07) and 0.8 or phase(age, life * 0.5, life)
 		for _, p in segments do
 			if p.Parent then
-				p.Transparency = (p.Size.X > width * 2 and 0.7 or 0) + (1 - (p.Size.X > width * 2 and 0.7 or 0)) * hidden
+				local base = p.Size.X > width * 1.6 and 0.8 or 0
+				p.Transparency = base + (1 - base) * hidden
 			end
 		end
 		if age >= life then
@@ -320,6 +321,10 @@ local function rocks(ctx)
 	local list = {}
 	for i = 1, 16 do
 		local angle = rng:NextNumber(0, math.pi * 2)
+		if ctx.isLocal then
+			-- keep a clear lane in front of the face for the cinematic's push-in (forward is -z, angle 3pi/2)
+			angle = 3 * math.pi / 2 + 0.55 + rng:NextNumber(0, math.pi * 2 - 1.1)
+		end
 		local r = rng:NextNumber(2.5, 7.5)
 		local size = rng:NextNumber(0.35, 1.3)
 		local home = Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
@@ -554,7 +559,7 @@ local function cinematic(ctx)
 		elseif t < BURST then -- slow push in to the face as the power peaks: a long-lens zoom from low
 			-- down, kept back past the floating rocks and rings so the camera never clips into them
 			local e = easeInOut((t - 2.0) / (BURST - 2.0))
-			return orbit(8 - 6 * e, 10.5 - 1.3 * e, 2.6 + 0.8 * e, 4.5), 58 - 24 * e
+			return orbit(8 - 6 * e, 13 - 1.2 * e, 2.8 + 0.8 * e, 4.5), 46 - 22 * e
 		else -- the burst: cut wide and low, FOV punch, then ease into the hero stance
 			local e = easeOut(phase(t, BURST, SETTLE))
 			return orbit(-22 + 6 * e, 17 - 3 * e, 1.1 + 0.3 * e, 4.8), 96 - 24 * easeOut(phase(t, BURST, BURST + 0.35))
@@ -749,7 +754,7 @@ Signatures.AzureSurge = function(ctx)
 		ctx.nextLash = ctx.nextLash or 0.6
 		if t >= ctx.nextLash and t < BURST then
 			local a = ctx.rng:NextNumber(0, math.pi * 2)
-			local r = ctx.rng:NextNumber(4, 9)
+			local r = ctx.rng:NextNumber(3.5, 6.5)
 			ctx:bolt(ctx:at(math.cos(a) * r * 0.5, 16, math.sin(a) * r * 0.5), ctx:at(math.cos(a) * r, 0, math.sin(a) * r), 0.35, c.Main, 0.18, 3)
 			ctx:shockwave(ctx:at(math.cos(a) * r, 0, math.sin(a) * r), c.Glow, 0.5, 5, 0.3, "AS_Plasma")
 			ctx.nextLash = t + 0.5 - 0.3 * build
@@ -1297,7 +1302,8 @@ Signatures.RadiantEdge = function(ctx)
 		-- held point-up, then a slash: a fast arc from overhead forward and down across the burst
 		local swing = easeInOut(phase(t, BURST - 0.2, BURST + 0.08))
 		local angle = math.rad(-160 * swing)
-		weld.C0 = grip * CFrame.Angles(angle, 0, 0) * CFrame.new(0, length / 2 + 0.1, 0)
+		-- at rest the blade angles up, out and slightly forward so it reads clear of the arm
+		weld.C0 = grip * CFrame.Angles(0, 0, math.rad(-28)) * CFrame.Angles(angle - math.rad(18), 0, 0) * CFrame.new(0, length / 2 + 0.1, 0)
 		base.Position = Vector3.new(0, -length / 2 + 0.6, 0)
 		tipAtt.Position = Vector3.new(0, length / 2, 0)
 		trail.Enabled = swing > 0 and swing < 1
