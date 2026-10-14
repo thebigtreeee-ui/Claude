@@ -1301,9 +1301,11 @@ Signatures.RadiantEdge = function(ctx)
 		blade.Size = Vector3.new(0.16 + 0.06 * form, length, 0.05)
 		-- held point-up, then a slash: a fast arc from overhead forward and down across the burst
 		local swing = easeInOut(phase(t, BURST - 0.2, BURST + 0.08))
-		local angle = math.rad(-160 * swing)
-		-- at rest the blade angles up, out and slightly forward so it reads clear of the arm
-		weld.C0 = grip * CFrame.Angles(0, 0, math.rad(-28)) * CFrame.Angles(angle - math.rad(18), 0, 0) * CFrame.new(0, length / 2 + 0.1, 0)
+		-- at rest the blade angles up, out and slightly forward so it reads clear of the arm; the slash
+		-- sweeps it diagonally across the body to finish pointing forward and low, clear of the ground
+		local pitch = math.rad(-18 - 92 * swing)
+		local sweep = math.rad(55 * swing)
+		weld.C0 = grip * CFrame.Angles(0, sweep, math.rad(-28)) * CFrame.Angles(pitch, 0, 0) * CFrame.new(0, length / 2 + 0.1, 0)
 		base.Position = Vector3.new(0, -length / 2 + 0.6, 0)
 		tipAtt.Position = Vector3.new(0, length / 2, 0)
 		trail.Enabled = swing > 0 and swing < 1
