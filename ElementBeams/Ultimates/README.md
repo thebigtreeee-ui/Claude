@@ -1,26 +1,29 @@
 # Element Ultimates
 
-One animated ultimate move per element. The models are built in Blender, and
-`ElementUltimates.lua` animates them in Roblox.
+One animated ultimate move per element (Nature uses your own). The models are built in Blender, and
+`ElementUltimates.lua` animates them in Roblox. It also adds real particles (fire, smoke, mist,
+sparks, dust), dynamic lights, and lightning bolts generated fresh for every strike.
 
-![All seven ultimates](previews/AllUltimates.jpg)
+![The ultimates](previews/AllUltimates.jpg)
+
+*The previews show the mesh structure at its peak. In game the particles and lighting add the
+fire, smoke, mist and sparks on top, which Blender can't preview.*
 
 | Element | Ultimate | What happens | Length |
 |---|---|---|---|
-| **Rift** | Opens a rift | Cracks race out through space, a crystal ring bursts open with a twist, a cyan vortex spins inside with a tunnel behind it, shards orbit. It then collapses into its core and flashes out | 5 s |
-| **Electric** | Thunderstorm | A black cloud swells overhead with purple light inside, rain pours, and six bolts strike again and again from random angles. The cloud glows each time one hits | 7 s |
-| **Fire** | Flames from the hands | Twin streams from both hands merge into a roaring cone that shoots forward, spinning flame tongues, wisps peeling off, embers rising | 4 s |
-| **Ice** | Stomp → ice wall | A shockwave and frost spread from the stomp, spikes erupt one after another towards the target, then an arc of giant ice pillars bursts up. It all sinks back in the same order | 6 s |
-| **Nature** | Grove of glowing trees | Glowing roots spread outwards, six trees grow one by one in a ring, the canopies bloom, glowing fruit pulses and leaves drift round. Then the trees wither away. **Recolourable** | 8 s |
-| **Wind** | Giant wind clap | Two giant hands of air swing in from the sides and slam together. A cone-shaped shockwave blasts forward with streaks and spinning wind blades | 2.2 s |
+| **Rift** | Rips open a rift | Cracks splinter through the air, then a ragged slit rips wide into a dark tear with a white-hot edge. Filaments spiral away into its depth, splinters of space drift round it, cyan motes and dark wisps leak out. It snaps shut with a flash | 6.5 s |
+| **Electric** | Thunderstorm | A heavy black cloud boils up overhead, churning with smoke, and rain pours. Lightning strikes at random in an irregular rhythm, sometimes two at once. Every bolt is generated fresh, with branches, a double flicker, sparks, dust and a flash lighting the ground and cloud | 7.5 s |
+| **Fire** | Flames from the hands | Particle fire pours from both hands into a roaring stream, with a white-hot core, heat-shimmer shells, embers and smoke rolling off the end. A flickering orange light washes over everything | 6.2 s |
+| **Ice** | Stomp → ice wall | The stomp throws up ice chips and mist, frost and cracks race across the ground, spikes punch up along the path, then an arc of craggy, splintered ice slabs bursts up section by section with a rumble. It shatters in the same order | 7.4 s |
+| **Wind** | Wind clap | The user claps their own hands (play this at the moment of the clap): a sharp burst of compressed air, shockwave shells punching forward from the hands, streaks of wind, a ring of air and dust blasting out along the ground, grit kicked away | 2 s |
 | **Void** | Black hole | A black hole implodes into being, the accretion disc unfurls and spins, polar jets shoot up and down, and debris spirals in and gets crushed. It snaps shut with a flash | 8 s |
 
 ## Setup in Studio
 
-1. **Import** the seven `*Ultimate.fbx` files (Home → Import 3D; you can select all at once). The
+1. **Import** the six `*Ultimate.fbx` files (Home → Import 3D; you can select all at once). The
    default settings are fine.
-2. Create a Folder **`ElementUltimateModels`** in `ReplicatedStorage` and put the seven models in it.
-   Keep the model and part names (`Frame`, `Swirl`, `Wall_03`, `Trunk_05`...) because the animation
+2. Create a Folder **`ElementUltimateModels`** in `ReplicatedStorage` and put the six models in it.
+   Keep the model and part names (`Edge`, `Abyss`, `Wall_03`, `Spike_05`...) because the animation
    finds the parts by name. Keep the tiny `Start`, `End` and `Top` marker parts too.
 3. Add **`ElementUltimates.lua`** to `ReplicatedStorage` as a ModuleScript named `ElementUltimates`.
 4. Play an ultimate:
@@ -31,9 +34,9 @@ local ElementUltimates = require(game.ReplicatedStorage.ElementUltimates)
 -- at the caster's feet, facing where they face
 ElementUltimates.play("Void", ElementUltimates.feet(character))
 
--- recoloured trees (any element works: `color` repaints its glowing parts)
-ElementUltimates.play("Nature", ElementUltimates.feet(character), {
-	color = Color3.fromRGB(255, 170, 60),
+-- recoloured (repaints the element's glowing parts, particles and lightning)
+ElementUltimates.play("Fire", ElementUltimates.feet(character), {
+	color = Color3.fromRGB(80, 160, 255), -- blue fire
 })
 
 -- other options

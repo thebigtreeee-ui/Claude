@@ -3,12 +3,11 @@
 -- Expects ReplicatedStorage.ElementUltimateModels holding the imported models, named after the
 -- element ("Rift") or the file ("RiftUltimate"). Each model keeps three tiny marker parts from
 -- Blender: Start (the user's feet), End (10 studs forward) and Top (10 studs up). This module reads
--- them to find which way the model faces, however the import was scaled or rotated, then animates
--- every other part frame by frame.
+-- them to find which way the model faces, however the import was scaled or rotated, animates every
+-- other part frame by frame, and adds particles, lights and live-generated lightning on top.
 --
 --   local ElementUltimates = require(game.ReplicatedStorage.ElementUltimates)
 --   ElementUltimates.play("Void", ElementUltimates.feet(character))
---   ElementUltimates.play("Nature", ElementUltimates.feet(character), { color = Color3.fromRGB(255, 120, 220) })
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -23,50 +22,45 @@ end
 local Neon = Enum.Material.Neon
 local Glass = Enum.Material.Glass
 local ForceField = Enum.Material.ForceField
+local Smooth = Enum.Material.SmoothPlastic
 
--- Part name -> look. Numbered parts (Wall_03, Trunk_05...) use the style of their base name.
+-- Part name -> look. Numbered parts (Wall_03, Spike_05...) use the style of their base name.
 ElementUltimates.Styles = {
 	Rift = {
-		Frame = style(150, 240, 250, Glass, 0.2),
-		Swirl = style(40, 220, 230, Neon, 0.35),
-		Tunnel = style(30, 200, 200, Neon, 0.45),
-		Core = style(230, 255, 255, Neon),
-		Cracks = style(40, 220, 230, Neon),
-		Fragments = style(190, 245, 245, Glass, 0.3),
+		Abyss = style(5, 10, 16, Smooth),
+		Edge = style(215, 250, 255, Neon),
+		Glow = style(70, 190, 210, ForceField, 0),
+		Depth = style(80, 200, 220, Neon, 0.5),
+		Cracks = style(120, 225, 240, Neon, 0.15),
+		Shards = style(185, 225, 235, Glass, 0.35),
 	},
 	Electric = {
-		Cloud = style(35, 32, 45, Enum.Material.SmoothPlastic),
-		CloudGlow = style(140, 60, 235, Neon, 0.5),
-		Rain = style(190, 170, 255, Neon, 0.6),
-		Bolt = style(245, 230, 255, Neon),
+		Cloud = style(52, 52, 62, Smooth, 0.05),
+		CloudBase = style(28, 28, 36, Smooth),
+		CloudGlow = style(150, 110, 230, Neon, 0.4),
+		Rain = style(160, 165, 190, Neon, 0.7),
 	},
 	Fire = {
-		Core = style(255, 240, 180, Neon),
-		Flames = style(255, 120, 20, Neon, 0.05),
-		Wisps = style(255, 60, 15, Neon, 0.15),
-		Embers = style(255, 180, 60, Neon),
+		Core = style(255, 235, 190, Neon, 0.25),
+		Shell = style(255, 140, 50, ForceField, 0),
+		OuterShell = style(220, 70, 25, ForceField, 0),
 	},
 	Ice = {
-		Shockwave = style(200, 240, 255, Neon, 0.3),
-		Frost = style(220, 245, 255, Enum.Material.Ice, 0.3),
-		Spike = style(190, 235, 255, Glass, 0.2),
-		Wall = style(150, 215, 255, Enum.Material.Ice, 0.15),
-	},
-	Nature = {
-		Roots = style(90, 230, 130, Neon, 0.2),
-		Trunk = style(70, 55, 40, Enum.Material.Wood),
-		Canopy = style(110, 255, 160, Neon, 0.25),
-		Glow = style(220, 255, 180, Neon),
-		Petals = style(150, 255, 190, Neon, 0.2),
+		Frost = style(205, 230, 240, Enum.Material.Ice, 0.45),
+		Cracks = style(170, 225, 245, Neon, 0.35),
+		Spike = style(190, 225, 240, Glass, 0.25),
+		Wall = style(180, 215, 230, Glass, 0.3),
+		WallCore = style(95, 145, 180, Enum.Material.Ice, 0.1),
 	},
 	Wind = {
-		Hand = style(170, 255, 230, ForceField, 0),
-		Shockwave = style(200, 255, 240, Neon, 0.4),
-		Streams = style(160, 240, 215, Neon, 0.3),
-		Blades = style(215, 255, 240, Neon, 0.2),
+		Flash = style(240, 250, 250, Neon, 0.3),
+		Rings = style(215, 235, 235, ForceField, 0),
+		GroundRing = style(205, 215, 210, ForceField, 0),
+		Streaks = style(215, 232, 230, Neon, 0.55),
+		Debris = style(120, 115, 105, Enum.Material.Slate),
 	},
 	Void = {
-		Core = style(8, 4, 14, Enum.Material.SmoothPlastic),
+		Core = style(8, 4, 14, Smooth),
 		Horizon = style(140, 60, 255, ForceField, 0),
 		Ring = style(205, 185, 255, Neon),
 		Disk = style(130, 60, 255, Neon, 0.2),
@@ -76,14 +70,14 @@ ElementUltimates.Styles = {
 	},
 }
 
--- Which parts `options.color` repaints for each element (the glowing, "energy" parts).
+-- Which parts `options.color` repaints for each element. The element's particles and lightning
+-- follow `options.color` too.
 ElementUltimates.Recolorable = {
-	Rift = { "Swirl", "Cracks", "Tunnel" },
-	Electric = { "CloudGlow", "Rain" },
-	Fire = { "Flames", "Wisps", "Embers" },
-	Ice = { "Shockwave", "Spike" },
-	Nature = { "Canopy", "Glow", "Roots", "Petals" },
-	Wind = { "Hand", "Streams", "Blades", "Shockwave" },
+	Rift = { "Edge", "Glow", "Depth", "Cracks" },
+	Electric = { "CloudGlow" },
+	Fire = { "Core", "Shell", "OuterShell" },
+	Ice = { "Cracks", "Frost" },
+	Wind = { "Flash", "Rings", "GroundRing", "Streaks" },
 	Void = { "Disk", "DiskOuter", "Jets", "Ring", "Horizon" },
 }
 
@@ -102,6 +96,10 @@ local function outQuad(x)
 	return 1 - (1 - x) * (1 - x)
 end
 
+local function outQuart(x)
+	return 1 - (1 - x) ^ 4
+end
+
 local function inQuad(x)
 	return x * x
 end
@@ -116,6 +114,154 @@ local function flat(s)
 	return Vector3.new(math.max(s, 0.01), 1, math.max(s, 0.01))
 end
 
+-- ---------------------------------------------------------------- particles, lights and helpers
+
+local TEXTURE = {
+	Fire = "rbxasset://textures/particles/fire_main.dds",
+	Smoke = "rbxasset://textures/particles/smoke_main.dds",
+	Spark = "rbxasset://textures/particles/sparkles_main.dds",
+}
+
+local function numbers(points, scale)
+	local keys = {}
+	for _, point in points do
+		table.insert(keys, NumberSequenceKeypoint.new(point[1], point[2] * (scale or 1)))
+	end
+	return NumberSequence.new(keys)
+end
+
+local function colors(points)
+	local keys = {}
+	for _, point in points do
+		table.insert(keys, ColorSequenceKeypoint.new(point[1], point[2]))
+	end
+	return ColorSequence.new(keys)
+end
+
+local function rgb(r, g, b)
+	return Color3.fromRGB(r, g, b)
+end
+
+-- An invisible anchored part at a model-space CFrame, to hang particles and lights on.
+-- Its volume is the emission area; its front face (LookVector) points along the model's local CFrame.
+local function holder(c, localCFrame, size)
+	local part = Instance.new("Part")
+	part.Name = "FX"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Transparency = 1
+	part.Size = size or Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = c.frame * localCFrame
+	part.Parent = c.model
+	return part
+end
+
+local function emitter(parent, props)
+	local e = Instance.new("ParticleEmitter")
+	e.Enabled = false
+	e.LightInfluence = 0
+	e.Rotation = NumberRange.new(0, 360)
+	for key, value in props do
+		e[key] = value
+	end
+	e.Parent = parent
+	return e
+end
+
+local function light(parent, color, range)
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Range = range
+	l.Brightness = 0
+	l.Shadows = false
+	l.Parent = parent
+	return l
+end
+
+-- Runs fn once, the first frame t reaches `at`.
+local function once(c, key, t, at, fn)
+	if t >= at and not c.done[key] then
+		c.done[key] = true
+		fn()
+	end
+end
+
+-- ---------------------------------------------------------------- live lightning
+
+local function randomPerpendicular(rng, direction)
+	local v = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1))
+	v -= direction * v:Dot(direction)
+	return v.Magnitude > 1e-3 and v.Unit or Vector3.xAxis
+end
+
+local function jaggedPath(rng, a, b, depth, roughness)
+	local points = { a, b }
+	for _ = 1, depth do
+		local refined = { points[1] }
+		for i = 1, #points - 1 do
+			local p, q = points[i], points[i + 1]
+			local d = q - p
+			local mid = (p + q) / 2 + randomPerpendicular(rng, d.Unit) * d.Magnitude * roughness * rng:NextNumber(-1, 1)
+			table.insert(refined, mid)
+			table.insert(refined, q)
+		end
+		points = refined
+	end
+	return points
+end
+
+local function segment(parent, a, b, width, color, transparency)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Material = Neon
+	part.Color = color
+	part.Transparency = transparency
+	part.Size = Vector3.new(width, width, (b - a).Magnitude + width * 0.5)
+	part.CFrame = CFrame.lookAt((a + b) / 2, b)
+	part.Parent = parent
+	return part
+end
+
+-- A forked lightning bolt between two world points, built from thin neon parts. Returns a Folder.
+local function lightningBolt(rng, parent, from, to, width, coreColor, glowColor)
+	local folder = Instance.new("Folder")
+	folder.Name = "Bolt"
+	local main = jaggedPath(rng, from, to, 5, 0.2)
+	for i = 1, #main - 1 do
+		segment(folder, main[i], main[i + 1], width, coreColor, 0)
+		segment(folder, main[i], main[i + 1], width * 3.5, glowColor, 0.75)
+	end
+	local length = (to - from).Magnitude
+	for _ = 1, 4 do
+		local start = main[rng:NextInteger(6, #main - 8)]
+		local direction = ((to - from).Unit + randomPerpendicular(rng, (to - from).Unit) * rng:NextNumber(0.6, 1.2)).Unit
+		local branch = jaggedPath(rng, start, start + direction * length * rng:NextNumber(0.12, 0.28), 3, 0.25)
+		for i = 1, #branch - 1 do
+			segment(folder, branch[i], branch[i + 1], width * 0.45 * (1 - i / #branch) + 0.04, coreColor, 0.1)
+		end
+	end
+	folder.Parent = parent
+	return folder
+end
+
+local function setBoltTransparency(folder, extra)
+	for _, part in folder:GetChildren() do
+		local base = part:GetAttribute("Base")
+		if base == nil then
+			base = part.Transparency
+			part:SetAttribute("Base", base)
+		end
+		part.Transparency = base + (1 - base) * extra
+	end
+end
+
 -- ---------------------------------------------------------------- animations
 --
 -- Model space: X = the user's right, Y = up, -Z = forward, origin = the user's feet.
@@ -123,257 +269,479 @@ end
 -- Each part() returns how to show one part at time t:
 --   scale (number or Vector3, model axes), pivot (scale about this point), rot (CFrame rotation),
 --   rotPivot, offset (Vector3), alpha (0 = invisible, 1 = its normal transparency).
+-- setup(c) runs once (create particles/lights here); frame(t, c) runs every frame before the parts.
 
 local Animations = {}
 
 Animations.Rift = {
-	duration = 5,
+	duration = 6.5,
+	setup = function(c)
+		local S = c.size
+		local C = c.v(0, 6.5, -10)
+		local box = holder(c, CFrame.new(C), Vector3.new(6, 12, 2) * S)
+		local tint = c.color or rgb(120, 230, 255)
+		c.sparks = emitter(box, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(225, 250, 255) }, { 1, tint } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 0.35 }, { 1, 0 } }, S),
+			Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1.2, 2.2),
+			Speed = NumberRange.new(1 * S, 4 * S),
+			SpreadAngle = Vector2.new(180, 180),
+			Drag = 1,
+			Rate = 40,
+		})
+		c.wisps = emitter(box, {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(20, 45, 55) }, { 1, rgb(5, 12, 18) } }),
+			Size = numbers({ { 0, 2 }, { 1, 5 } }, S),
+			Transparency = numbers({ { 0, 1 }, { 0.3, 0.7 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(2, 3),
+			Speed = NumberRange.new(0.5 * S, 1.5 * S),
+			SpreadAngle = Vector2.new(180, 180),
+			RotSpeed = NumberRange.new(-20, 20),
+			Rate = 6,
+		})
+		c.light = light(box, tint, 28 * S)
+	end,
+	frame = function(t, c)
+		c.sparks.Enabled = t > 0.3 and t < 4.8
+		c.wisps.Enabled = t > 0.4 and t < 4.8
+		once(c, "rip", t, 0.2, function()
+			c.sparks:Emit(60)
+		end)
+		once(c, "close", t, 5.0, function()
+			c.sparks:Emit(80)
+		end)
+		local open = phase(t, 0.15, 0.6) * (1 - phase(t, 4.7, 5.2))
+		local flash = math.max(1 - math.abs(t - 0.25) / 0.2, 1 - math.abs(t - 5.05) / 0.25, 0)
+		c.light.Brightness = 3.5 * open + 9 * flash
+	end,
 	part = function(r, t, c)
-		local C = c.v(0, 6.2, -10)
-		local outro = phase(t, 4.3, 4.9)
-		local shrink = 1 - inQuad(outro)
+		local C = c.v(0, 6.5, -10)
+		local close = inQuad(phase(t, 4.7, 5.2))
+		-- the tear starts as a slit and rips wide open
+		local width = math.max(outQuart(phase(t, 0.15, 0.6)) * (1 - close), 0.02)
+		local height = 0.35 + 0.65 * outQuart(phase(t, 0, 0.3))
+		local opening = Vector3.new(width, height, 1)
 		local p = r.prefix
-		if p == "Cracks" then
-			return { scale = math.max(outQuad(phase(t, 0, 0.35)), 0.01), pivot = C, alpha = 1 - phase(t, 4.0, 4.6) }
-		elseif p == "Frame" then
-			local e = outBack(phase(t, 0.15, 0.75))
-			return { scale = math.max(e * shrink, 0.01), pivot = C, rot = CFrame.Angles(0, 0, (1 - e) * -2 + outro * 3), rotPivot = C }
-		elseif p == "Swirl" then
+		if p == "Abyss" then
+			return { scale = opening, pivot = C, alpha = phase(t, 0.1, 0.2) }
+		elseif p == "Edge" then
+			return { scale = opening, pivot = C, alpha = phase(t, 0, 0.1) * (0.85 + 0.15 * math.sin(t * 40)) }
+		elseif p == "Glow" then
+			return { scale = opening, pivot = C, alpha = phase(t, 0.1, 0.4) * (0.6 + 0.4 * math.sin(t * 3)) }
+		elseif p == "Depth" then
 			return {
-				scale = math.max(outQuad(phase(t, 0.3, 0.9)) * shrink, 0.01),
+				scale = opening,
 				pivot = C,
-				rot = CFrame.Angles(0, 0, t * 3),
+				rot = CFrame.Angles(0, 0, t * 0.8),
 				rotPivot = C,
-				alpha = phase(t, 0.3, 0.6),
+				alpha = phase(t, 0.5, 1.0) * (1 - close),
 			}
-		elseif p == "Tunnel" then
+		elseif p == "Cracks" then
+			-- reality cracks first, a moment before the tear opens
+			return { scale = math.max(outQuart(phase(t, 0, 0.35)), 0.01), pivot = C, alpha = 1 - phase(t, 4.5, 5.0) }
+		else -- Shards drift slowly outwards and round
 			return {
-				scale = math.max(outQuad(phase(t, 0.5, 1.1)) * shrink, 0.01),
+				scale = 0.85 + 0.25 * phase(t, 0.3, 5),
 				pivot = C,
-				rot = CFrame.Angles(0, 0, -t * 1.5),
+				rot = CFrame.Angles(0, 0, t * 0.25),
 				rotPivot = C,
-				alpha = phase(t, 0.5, 0.8),
-			}
-		elseif p == "Core" then
-			local flash = phase(t, 4.6, 5)
-			local s = outBack(phase(t, 0.5, 0.9)) * (1 + 0.12 * math.sin(t * 12)) * shrink + flash * 3
-			return { scale = math.max(s, 0.01), pivot = C, alpha = 1 - flash }
-		else -- Fragments
-			return {
-				scale = math.max(outQuad(phase(t, 0.4, 1.0)) * shrink, 0.01),
-				pivot = C,
-				rot = CFrame.Angles(0, 0, -t * 0.8),
-				rotPivot = C,
+				alpha = phase(t, 0.3, 0.7) * (1 - close),
 			}
 		end
 	end,
 }
 
 Animations.Electric = {
-	duration = 7,
+	duration = 7.5,
 	setup = function(c)
-		-- each bolt strikes a few times at random moments, from a random angle round the storm
+		local S = c.size
+		local CC = c.v(0, 26, -14)
+		local tint = c.color or rgb(165, 120, 255)
+		c.boltCore = rgb(250, 242, 255)
+		c.boltGlow = tint
+		local cloud = holder(c, CFrame.new(CC), Vector3.new(30, 4, 24) * S)
+		c.smoke = emitter(cloud, {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(50, 50, 60) }, { 1, rgb(35, 35, 44) } }),
+			Size = numbers({ { 0, 8 }, { 1, 14 } }, S),
+			Transparency = numbers({ { 0, 1 }, { 0.2, 0.55 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(3, 5),
+			Speed = NumberRange.new(0.2 * S, 1 * S),
+			SpreadAngle = Vector2.new(180, 180),
+			RotSpeed = NumberRange.new(-15, 15),
+			Rate = 10,
+		})
+		c.cloudLight = light(cloud, tint, 45 * S)
+
+		c.impact = holder(c, CFrame.new(c.v(0, 0.5, -14)))
+		c.sparks = emitter(c.impact, {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(245, 235, 255) }, { 1, tint } }),
+			LightEmission = 1,
+			Size = numbers({ { 0, 0.5 }, { 1, 0 } }, S),
+			Lifetime = NumberRange.new(0.3, 0.7),
+			Speed = NumberRange.new(15 * S, 35 * S),
+			SpreadAngle = Vector2.new(80, 80),
+			EmissionDirection = Enum.NormalId.Top,
+			Acceleration = Vector3.new(0, -40 * S, 0),
+		})
+		c.dust = emitter(c.impact, {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(95, 90, 100) }, { 1, rgb(60, 58, 66) } }),
+			Size = numbers({ { 0, 2 }, { 1, 6 } }, S),
+			Transparency = numbers({ { 0, 0.5 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.8, 1.5),
+			Speed = NumberRange.new(4 * S, 8 * S),
+			SpreadAngle = Vector2.new(85, 85),
+			EmissionDirection = Enum.NormalId.Top,
+		})
+		c.impactLight = light(c.impact, tint, 35 * S)
+
+		-- strikes come in an irregular rhythm, sometimes two at once
 		c.strikes = {}
-		for i = 1, 6 do
-			local list = {}
-			local time = 1.2 + c.random:NextNumber(0, 0.8)
-			while time < 6.0 do
-				table.insert(list, { time = time, yaw = c.random:NextNumber(0, math.pi * 2) })
-				time += c.random:NextNumber(0.5, 1.4)
+		local time = 1.4
+		while time < 6.4 do
+			table.insert(c.strikes, { time = time })
+			if c.random:NextNumber() < 0.25 then
+				table.insert(c.strikes, { time = time + 0.05 })
 			end
-			c.strikes[i] = list
+			time += c.random:NextNumber(0.25, 0.75)
 		end
 	end,
 	frame = function(t, c)
+		local S = c.size
+		c.smoke.Enabled = t > 0.3 and t < 6.3
 		c.flash = 0
-		for _, list in c.strikes do
-			for _, strike in list do
-				if t >= strike.time and t < strike.time + 0.14 then
+		local impactFlash = 0
+		for _, strike in c.strikes do
+			local since = t - strike.time
+			if since >= 0 and not strike.bolt and not strike.over then
+				local from = c.frame:PointToWorldSpace(c.v(c.random:NextNumber(-12, 12), 23.5, -14 + c.random:NextNumber(-9, 9)))
+				local angle = c.random:NextNumber(0, math.pi * 2)
+				local reach = c.random:NextNumber(2, 13)
+				local to = c.frame:PointToWorldSpace(c.v(math.cos(angle) * reach, 0, -14 + math.sin(angle) * reach))
+				strike.bolt = lightningBolt(c.random, c.model, from, to, 0.35 * S, c.boltCore, c.boltGlow)
+				c.impact.CFrame = CFrame.new(to + Vector3.new(0, 0.3 * S, 0)) * c.frame.Rotation
+				c.sparks:Emit(40)
+				c.dust:Emit(12)
+			end
+			if strike.bolt then
+				if since > 0.22 then
+					strike.bolt:Destroy()
+					strike.bolt = nil
+					strike.over = true
+				else
+					-- a double flicker, then a quick fade
+					local hidden = (since > 0.06 and since < 0.1) and 0.85 or phase(since, 0.12, 0.22)
+					setBoltTransparency(strike.bolt, hidden)
 					c.flash = 1
+					impactFlash = math.max(impactFlash, 1 - phase(since, 0, 0.25))
 				end
 			end
 		end
+		c.cloudLight.Brightness = 1 + 6 * c.flash
+		c.impactLight.Brightness = 10 * impactFlash
 	end,
 	part = function(r, t, c)
 		local CC = c.v(0, 26, -14)
-		local ground = c.v(0, 0, -14)
-		local appear = outQuad(phase(t, 0, 1.2))
-		local fade = phase(t, 6.2, 7)
+		local appear = outQuad(phase(t, 0, 1.4))
+		local fade = phase(t, 6.5, 7.5)
 		local p = r.prefix
-		if p == "Cloud" or p == "CloudGlow" then
-			local alpha = appear * (1 - fade)
-			if p == "CloudGlow" then
-				alpha *= 0.35 + 0.65 * c.flash
-			end
-			return {
-				scale = 0.25 + 0.75 * appear + 0.1 * fade,
-				pivot = CC,
-				rot = CFrame.Angles(0, t * 0.08, 0),
-				rotPivot = CC,
-				alpha = alpha,
-			}
-		elseif p == "Rain" then
+		if p == "Rain" then
 			local period = 4 * c.size
-			return { offset = Vector3.new(0, -((t * 45 * c.size) % period), 0), alpha = phase(t, 1, 1.5) * (1 - phase(t, 6, 6.6)) }
-		else -- Bolt_NN
-			for _, strike in c.strikes[r.index] or {} do
-				local since = t - strike.time
-				if since >= 0 and since < 0.14 then
-					local flicker = (since < 0.05 or since > 0.09) and 1 or 0.25
-					return { rot = CFrame.Angles(0, strike.yaw, 0), rotPivot = ground, alpha = flicker }
-				end
-			end
-			return { alpha = 0 }
+			return { offset = Vector3.new(0, -((t * 55 * c.size) % period), 0), alpha = phase(t, 1.2, 1.8) * (1 - phase(t, 6.3, 7)) }
 		end
-	end,
-}
-
-Animations.Fire = {
-	duration = 4,
-	part = function(r, t, c)
-		local axis = c.v(0, 3.2, -1.5) -- the hands; the flames pour forwards (-Z) from here
-		local grow = outQuad(phase(t, 0, 0.35))
-		local fade = phase(t, 3.3, 4)
-		local width = 1 - 0.5 * fade
-		local stretch = Vector3.new(width, width, math.max(grow, 0.02))
-		local p = r.prefix
-		if p == "Core" then
-			stretch *= Vector3.new(1 + 0.06 * math.sin(t * 31), 1 + 0.06 * math.sin(t * 27), 1)
-			return { scale = stretch, pivot = axis, alpha = 1 - fade }
-		elseif p == "Flames" then
-			return { scale = stretch, pivot = axis, rot = CFrame.Angles(0, 0, t * 7), rotPivot = axis, alpha = 1 - fade }
-		elseif p == "Wisps" then
-			return { scale = stretch, pivot = axis, rot = CFrame.Angles(0, 0, -t * 5), rotPivot = axis, alpha = 1 - fade }
-		else -- Embers drift upwards and forwards
-			return {
-				scale = stretch,
-				pivot = axis,
-				rot = CFrame.Angles(0, 0, t * 1.5),
-				rotPivot = axis,
-				offset = Vector3.new(0, ((t * 2) % 2) * c.size, 0),
-				alpha = (1 - fade) * phase(t, 0.2, 0.5),
-			}
+		local alpha = appear * (1 - fade)
+		if p == "CloudGlow" then
+			alpha *= 0.15 + 0.85 * c.flash
 		end
-	end,
-}
-
-Animations.Ice = {
-	duration = 6,
-	part = function(r, t, c)
-		local p = r.prefix
-		if p == "Shockwave" then
-			local e = outQuad(phase(t, 0, 0.6))
-			return { scale = flat(0.1 + 1.5 * e), pivot = Vector3.zero, alpha = 1 - phase(t, 0.2, 0.7) }
-		elseif p == "Frost" then
-			return { scale = flat(outQuad(phase(t, 0, 0.9))), pivot = Vector3.zero, alpha = 1 - phase(t, 5.2, 6) }
-		end
-		-- Spike_NN / Wall_NN: burst out of the ground in a wave travelling away from the stomp,
-		-- then sink back in the same order
-		local delay = 0.05 + r.distance / (40 * c.size)
-		local rise = phase(t, delay, delay + 0.3)
-		if rise <= 0 then
-			return { alpha = 0 }
-		end
-		local e = outBack(rise)
-		local sink = inQuad(phase(t, 4.6 + r.distance / (60 * c.size), 5.4 + r.distance / (60 * c.size)))
-		local ground = Vector3.new(r.pos.X, 0, r.pos.Z)
 		return {
-			scale = Vector3.new(0.5 + 0.5 * e, math.max(e, 0.01), 0.5 + 0.5 * e),
-			pivot = ground,
-			offset = Vector3.new(0, -sink * r.height, 0),
-			alpha = 1 - sink,
+			scale = 0.3 + 0.7 * appear,
+			pivot = CC,
+			rot = CFrame.Angles(0, t * 0.05, 0),
+			rotPivot = CC,
+			alpha = alpha,
 		}
 	end,
 }
 
-Animations.Nature = {
-	duration = 8,
+Animations.Fire = {
+	duration = 6.2,
+	setup = function(c)
+		local S = c.size
+		local tint = c.color
+		c.flames, c.embers = {}, {}
+		for _, x in { -0.9, 0.9 } do
+			local hand = holder(c, CFrame.new(c.v(x, 3.2, -1.5)))
+			table.insert(c.flames, emitter(hand, {
+				Texture = TEXTURE.Fire,
+				EmissionDirection = Enum.NormalId.Front,
+				Color = tint and colors({ { 0, rgb(255, 250, 230) }, { 0.3, tint }, { 1, tint:Lerp(Color3.new(), 0.7) } })
+					or colors({ { 0, rgb(255, 250, 220) }, { 0.25, rgb(255, 190, 80) }, { 0.6, rgb(240, 90, 30) }, { 1, rgb(90, 30, 20) } }),
+				LightEmission = 1,
+				Size = numbers({ { 0, 0.8 }, { 0.5, 3.5 }, { 1, 6 } }, S),
+				Transparency = numbers({ { 0, 0.2 }, { 0.7, 0.5 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.4, 0.6),
+				Speed = NumberRange.new(40 * S, 55 * S),
+				SpreadAngle = Vector2.new(9, 9),
+				RotSpeed = NumberRange.new(-90, 90),
+				Drag = 1.5,
+				Acceleration = Vector3.new(0, 6 * S, 0),
+				Rate = 160,
+			}))
+			table.insert(c.embers, emitter(hand, {
+				Texture = TEXTURE.Spark,
+				EmissionDirection = Enum.NormalId.Front,
+				Color = colors({ { 0, rgb(255, 210, 110) }, { 1, tint or rgb(255, 90, 30) } }),
+				LightEmission = 1,
+				Size = numbers({ { 0, 0.3 }, { 1, 0 } }, S),
+				Lifetime = NumberRange.new(0.6, 1.1),
+				Speed = NumberRange.new(25 * S, 50 * S),
+				SpreadAngle = Vector2.new(22, 22),
+				Acceleration = Vector3.new(0, 10 * S, 0),
+				Rate = 50,
+			}))
+		end
+		local smokeBox = holder(c, CFrame.new(c.v(0, 4.5, -17)), Vector3.new(8, 6, 10) * S)
+		c.smoke = emitter(smokeBox, {
+			Texture = TEXTURE.Smoke,
+			EmissionDirection = Enum.NormalId.Top,
+			Color = colors({ { 0, rgb(70, 60, 55) }, { 1, rgb(40, 38, 38) } }),
+			Size = numbers({ { 0, 4 }, { 1, 11 } }, S),
+			Transparency = numbers({ { 0, 1 }, { 0.15, 0.6 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1.6, 2.6),
+			Speed = NumberRange.new(2 * S, 5 * S),
+			RotSpeed = NumberRange.new(-20, 20),
+			Rate = 22,
+		})
+		c.light = light(holder(c, CFrame.new(c.v(0, 3.5, -8))), tint or rgb(255, 150, 60), 30 * S)
+	end,
+	frame = function(t, c)
+		local on = t > 0.02 and t < 3.6
+		for _, e in c.flames do
+			e.Enabled = on
+		end
+		for _, e in c.embers do
+			e.Enabled = on
+		end
+		c.smoke.Enabled = t > 0.3 and t < 4.0
+		local level = outQuad(phase(t, 0, 0.3)) * (1 - phase(t, 3.6, 4.3))
+		c.light.Brightness = level * (3.5 + 0.8 * math.sin(t * 23) + 0.5 * math.sin(t * 37))
+	end,
 	part = function(r, t, c)
-		local fade = phase(t, 7, 8)
-		local wither = inQuad(fade)
+		local axis = c.v(0, 3.2, -1.5) -- the hands; the flames pour forwards (-Z) from here
+		local grow = outQuad(phase(t, 0, 0.3))
+		local fade = phase(t, 3.6, 4.3)
+		local width = 1 - 0.4 * fade
+		local stretch = Vector3.new(width, width, math.max(grow, 0.02))
 		local p = r.prefix
-		local index = r.index or 1
-		local base = Vector3.new(r.pos.X, 0, r.pos.Z)
-		local sway = CFrame.Angles(math.sin(t * 1.3 + index) * 0.03, 0, math.cos(t * 1.1 + index) * 0.03)
-		if p == "Roots" then
-			return { scale = flat(outQuad(phase(t, 0, 0.9))), pivot = Vector3.zero, alpha = 1 - fade }
-		elseif p == "Trunk" then
-			local start = 0.25 + (index - 1) * 0.12
-			local grow = phase(t, start, start + 0.7)
-			if grow <= 0 then
-				return { alpha = 0 }
-			end
+		if p == "Core" then
+			stretch *= Vector3.new(1 + 0.08 * math.sin(t * 31), 1 + 0.08 * math.sin(t * 27), 1)
+			return { scale = stretch, pivot = axis, alpha = 1 - fade }
+		elseif p == "Shell" then
 			return {
-				scale = math.max(outBack(grow), 0.01),
-				pivot = base,
-				rot = sway,
-				rotPivot = base,
-				offset = Vector3.new(0, -wither * r.height, 0),
-				alpha = 1 - wither,
+				scale = stretch * (1 + 0.05 * math.sin(t * 23)),
+				pivot = axis,
+				rot = CFrame.Angles(0, 0, t * 2.5),
+				rotPivot = axis,
+				alpha = (1 - fade) * (0.75 + 0.25 * math.sin(t * 17)),
 			}
-		elseif p == "Canopy" or p == "Glow" then
-			local start = 0.8 + (index - 1) * 0.12
-			local bloom = phase(t, start, start + 0.5)
-			if bloom <= 0 then
-				return { alpha = 0 }
-			end
-			local s = outBack(bloom) * (1 + 0.03 * math.sin(t * 2 + index)) * (1 - wither)
-			local alpha = 1 - fade
-			if p == "Glow" then
-				alpha *= 0.55 + 0.45 * math.sin(t * 3 + index)
-			end
-			return { scale = math.max(s, 0.01), pivot = r.pos, rot = sway, rotPivot = base, alpha = alpha }
-		else -- Petals drift round the grove
+		else -- OuterShell
 			return {
-				rot = CFrame.Angles(0, t * 0.35, 0),
-				rotPivot = Vector3.zero,
-				offset = Vector3.new(0, 0.4 * c.size * math.sin(t * 1.5), 0),
-				alpha = phase(t, 1, 1.8) * (1 - fade),
+				scale = stretch,
+				pivot = axis,
+				rot = CFrame.Angles(0, 0, -t * 1.8),
+				rotPivot = axis,
+				alpha = (1 - fade) * (0.6 + 0.4 * math.sin(t * 11 + 1)),
 			}
 		end
 	end,
 }
 
-Animations.Wind = {
-	duration = 2.2,
-	part = function(r, t, c)
-		local W = c.v(0, 7, -7) -- where the hands meet
-		local clap = 0.45
-		local p = r.prefix
-		if p == "Hand" then
-			-- the hands start wide open at the sides and slam together, speeding up as they close
-			local side = r.pos.X > 0 and 1 or -1
-			local open = 1 - inQuad(phase(t, 0.1, clap))
-			return {
-				scale = 1 + 0.15 * phase(t, clap, 1.1),
-				pivot = W,
-				rot = CFrame.Angles(0, -side * 0.7 * open, 0),
-				rotPivot = W,
-				offset = Vector3.new(side * 9 * c.size * open, 0, 0),
-				alpha = phase(t, 0, 0.15) * (1 - phase(t, 0.7, 1.1)),
-			}
+-- when a wall slab / spike starts rising, given how far it is from the stomp
+local function iceDelay(r, c)
+	return 0.08 + r.distance / (38 * c.size)
+end
+
+local function iceShatter(r, c)
+	return 5.0 + r.distance / (80 * c.size)
+end
+
+Animations.Ice = {
+	duration = 7.4,
+	setup = function(c)
+		local S = c.size
+		local feet = holder(c, CFrame.new(c.v(0, 0.3, 0)))
+		local chips = {
+			Texture = TEXTURE.Spark,
+			Color = colors({ { 0, rgb(235, 248, 255) }, { 1, rgb(150, 200, 230) } }),
+			LightEmission = 0.6,
+			Size = numbers({ { 0, 0.45 }, { 1, 0.1 } }, S),
+			Lifetime = NumberRange.new(0.5, 1.0),
+			Speed = NumberRange.new(18 * S, 32 * S),
+			SpreadAngle = Vector2.new(70, 70),
+			EmissionDirection = Enum.NormalId.Top,
+			Acceleration = Vector3.new(0, -45 * S, 0),
+			RotSpeed = NumberRange.new(-200, 200),
+		}
+		local mist = {
+			Texture = TEXTURE.Smoke,
+			Color = colors({ { 0, rgb(225, 238, 248) }, { 1, rgb(190, 215, 235) } }),
+			Size = numbers({ { 0, 2 }, { 1, 7 } }, S),
+			Transparency = numbers({ { 0, 0.45 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(1.2, 2.2),
+			Speed = NumberRange.new(4 * S, 10 * S),
+			SpreadAngle = Vector2.new(80, 80),
+			EmissionDirection = Enum.NormalId.Top,
+			RotSpeed = NumberRange.new(-25, 25),
+			Drag = 2,
+		}
+		c.stompChips = emitter(feet, chips)
+		c.stompMist = emitter(feet, mist)
+		-- a puff of mist and a spray of ice chips where every wall section breaks the ground
+		c.sections = {}
+		for _, r in c.rests do
+			if r.prefix == "Wall" then
+				local base = holder(c, CFrame.new(Vector3.new(r.pos.X, 0.5 * S, r.pos.Z)))
+				table.insert(c.sections, {
+					rest = r,
+					chips = emitter(base, chips),
+					mist = emitter(base, mist),
+				})
+			end
 		end
-		if t < clap then
+		c.light = light(holder(c, CFrame.new(c.v(0, 6, -14))), c.color or rgb(170, 215, 255), 35 * S)
+	end,
+	frame = function(t, c)
+		once(c, "stomp", t, 0.02, function()
+			c.stompChips:Emit(70)
+			c.stompMist:Emit(25)
+		end)
+		for i, section in c.sections do
+			once(c, "rise" .. i, t, iceDelay(section.rest, c), function()
+				section.chips:Emit(25)
+				section.mist:Emit(14)
+			end)
+			once(c, "shatter" .. i, t, iceShatter(section.rest, c), function()
+				section.chips:Emit(40)
+				section.mist:Emit(10)
+			end)
+		end
+		c.light.Brightness = 2.5 * phase(t, 0.4, 0.9) * (1 - phase(t, 5, 6))
+	end,
+	part = function(r, t, c)
+		local p = r.prefix
+		if p == "Frost" then
+			return { scale = flat(outQuad(phase(t, 0, 0.9))), pivot = Vector3.zero, alpha = 1 - phase(t, 5.6, 6.4) }
+		elseif p == "Cracks" then
+			return { scale = flat(outQuart(phase(t, 0, 0.45))), pivot = Vector3.zero, alpha = 1 - phase(t, 5.4, 6.2) }
+		end
+		-- Spike_NN / Wall_NN / WallCore_NN: punch up out of the ground in a wave travelling away
+		-- from the stomp, rumble, then shatter in the same order
+		local delay = iceDelay(r, c)
+		local rise = phase(t, delay, delay + 0.22)
+		if rise <= 0 then
 			return { alpha = 0 }
 		end
-		if p == "Shockwave" then
-			local e = outQuad(phase(t, clap, clap + 0.7))
+		local e = outQuart(rise)
+		local shatter = phase(t, iceShatter(r, c), iceShatter(r, c) + 0.35)
+		local rumble = math.sin(t * 70) * 0.06 * c.size * math.max(0, 1 - (t - delay) / 0.5)
+		return {
+			scale = Vector3.new(0.75 + 0.25 * e, math.max(e * (1 - 0.15 * shatter), 0.01), 0.75 + 0.25 * e),
+			pivot = Vector3.new(r.pos.X, 0, r.pos.Z),
+			offset = Vector3.new(rumble, -shatter * c.size, 0),
+			alpha = 1 - shatter,
+		}
+	end,
+}
+
+Animations.Wind = {
+	duration = 2,
+	setup = function(c)
+		local S = c.size
+		local K = c.v(0, 4.3, -1.6)
+		local hands = holder(c, CFrame.new(K))
+		c.gust = emitter(hands, {
+			Texture = TEXTURE.Spark,
+			EmissionDirection = Enum.NormalId.Front,
+			Color = colors({ { 0, rgb(245, 250, 250) }, { 1, c.color or rgb(210, 235, 232) } }),
+			LightEmission = 0.5,
+			Size = numbers({ { 0, 0.25 }, { 1, 0 } }, S),
+			Lifetime = NumberRange.new(0.3, 0.6),
+			Speed = NumberRange.new(50 * S, 80 * S),
+			SpreadAngle = Vector2.new(45, 30),
+			Drag = 2,
+		})
+		c.puff = emitter(hands, {
+			Texture = TEXTURE.Smoke,
+			EmissionDirection = Enum.NormalId.Front,
+			Color = colors({ { 0, rgb(235, 240, 240) }, { 1, rgb(215, 222, 222) } }),
+			Size = numbers({ { 0, 1 }, { 1, 7 } }, S),
+			Transparency = numbers({ { 0, 0.6 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.6, 1.0),
+			Speed = NumberRange.new(30 * S, 45 * S),
+			SpreadAngle = Vector2.new(35, 25),
+			Drag = 5,
+			RotSpeed = NumberRange.new(-60, 60),
+		})
+		-- dust thrown out in every direction along the ground
+		c.dust = {}
+		for i = 1, 12 do
+			local a = math.pi * 2 * i / 12
+			local pos = c.v(math.cos(a) * 1.5, 0.4, math.sin(a) * 1.5)
+			local base = holder(c, CFrame.lookAt(pos, pos + Vector3.new(math.cos(a), 0, math.sin(a))))
+			table.insert(c.dust, emitter(base, {
+				Texture = TEXTURE.Smoke,
+				EmissionDirection = Enum.NormalId.Front,
+				Color = colors({ { 0, rgb(180, 170, 155) }, { 1, rgb(150, 142, 130) } }),
+				Size = numbers({ { 0, 1.5 }, { 1, 5 } }, S),
+				Transparency = numbers({ { 0, 0.45 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.8, 1.4),
+				Speed = NumberRange.new(18 * S, 28 * S),
+				SpreadAngle = Vector2.new(20, 12),
+				Drag = 4,
+				RotSpeed = NumberRange.new(-40, 40),
+			}))
+		end
+		c.light = light(hands, rgb(235, 245, 245), 22 * S)
+	end,
+	frame = function(t, c)
+		once(c, "clap", t, 0.01, function()
+			c.gust:Emit(60)
+			c.puff:Emit(18)
+		end)
+		once(c, "dust", t, 0.03, function()
+			for _, e in c.dust do
+				e:Emit(6)
+			end
+		end)
+		c.light.Brightness = 8 * (1 - phase(t, 0, 0.25))
+	end,
+	part = function(r, t, c)
+		local K = c.v(0, 4.3, -1.6) -- where the user's hands meet
+		local p = r.prefix
+		if p == "Flash" then
+			return { scale = 0.3 + 1.2 * outQuad(phase(t, 0, 0.12)), pivot = K, alpha = 1 - phase(t, 0.06, 0.22) }
+		elseif p == "Rings" then
+			local e = outQuart(phase(t, 0.02, 0.5))
+			return { scale = 0.15 + 1.6 * e, pivot = K, offset = Vector3.new(0, 0, -6 * c.size * e), alpha = 1 - phase(t, 0.2, 0.65) }
+		elseif p == "GroundRing" then
+			local e = outQuart(phase(t, 0.05, 0.6))
+			return { scale = flat(0.3 + 3.5 * e), pivot = c.v(0, 0, -0.5), alpha = 1 - phase(t, 0.25, 0.75) }
+		elseif p == "Streaks" then
+			local s = math.max(outQuart(phase(t, 0, 0.25)), 0.01) * (1 + 0.6 * phase(t, 0.25, 0.8))
+			return { scale = s, pivot = K, alpha = 1 - phase(t, 0.3, 0.8) }
+		else -- Debris kicked outwards along the ground
+			local e = outQuad(phase(t, 0.03, 0.7))
 			return {
-				scale = 0.2 + 1.3 * e,
-				pivot = W,
-				offset = Vector3.new(0, 0, -28 * c.size * e),
-				alpha = 1 - phase(t, clap + 0.3, clap + 1.0),
-			}
-		elseif p == "Streams" then
-			local e = outQuad(phase(t, clap, clap + 0.35))
-			return { scale = Vector3.new(1, 1, math.max(e, 0.01)), pivot = W, alpha = 1 - phase(t, clap + 0.6, clap + 1.2) }
-		else -- Blades fly out with the shockwave, spinning
-			local e = outQuad(phase(t, clap, clap + 1.0))
-			return {
-				rot = CFrame.Angles(0, 0, t * 6),
-				rotPivot = W,
-				offset = Vector3.new(0, 0, -35 * c.size * e),
-				alpha = 1 - phase(t, clap + 0.6, clap + 1.1),
+				scale = flat(1 + 3.5 * e),
+				pivot = Vector3.zero,
+				offset = Vector3.new(0, math.sin(math.pi * e) * 0.8 * c.size, 0),
+				alpha = 1 - phase(t, 0.4, 0.8),
 			}
 		end
 	end,
@@ -538,8 +906,8 @@ end
 -- Plays an element's ultimate at `at` (a CFrame at the user's feet; only its position and the
 -- horizontal part of its facing are used). Options:
 --   size     scale of the whole effect (default 1)
---   color    Color3 that repaints the element's glowing parts (see ElementUltimates.Recolorable)
---   colors   { PartName = Color3 } for full control, e.g. { Canopy = ..., Trunk = ... }
+--   color    Color3 that repaints the element's glowing parts and its particles
+--   colors   { PartName = Color3 } for full control over individual parts
 --   parent   where the model goes (default workspace)
 --   onFinished  called when the effect ends and the model is removed
 -- Returns the model and the effect's duration in seconds. Purely visual: damage stays in your scripts.
@@ -600,7 +968,13 @@ function ElementUltimates.play(element, at, options)
 
 	local context = {
 		size = size,
+		color = options.color,
 		random = Random.new(),
+		model = model,
+		frame = frame,
+		rests = rests,
+		done = {},
+		flash = 0,
 		v = function(x, y, z)
 			return Vector3.new(x, y, z) * size
 		end,

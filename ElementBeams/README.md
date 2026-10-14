@@ -78,8 +78,8 @@ doing your hit detection the way you do now and use `onArrive` to time the impac
 
 ## Ultimate moves
 
-`Ultimates/` holds an animated ultimate for every element (portal, thunderstorm, flamethrower,
-ice wall, glowing grove, wind clap, black hole), played by `ElementUltimates.lua`. See
+`Ultimates/` holds an animated ultimate for Rift, Electric, Fire, Ice, Wind and Void (rift tear,
+thunderstorm, flamethrower, ice wall, wind clap, black hole), played by `ElementUltimates.lua`. See
 [`Ultimates/README.md`](Ultimates/README.md).
 
 ## Changing the models

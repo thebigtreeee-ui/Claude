@@ -117,383 +117,290 @@ def angular_crack(bm, a, b, rng, segments=4, wander=0.25, r=0.07):
         sweep(bm, [p, q], [square(r), square(r)])
 
 
-# ---------------------------------------------------------------- Rift: a portal tearing open
+# ---------------------------------------------------------------- shared shapes for the reworked ultimates
+
+
+def slab(bm, rng, base, width, depth, height, lean=0.2, facets=2):
+    """A craggy, irregular chunk of ice or rock standing on `base`: no clean symmetry, flat-shaded facets."""
+    geo = bmesh.ops.create_icosphere(bm, subdivisions=facets, radius=1.0)
+    yaw = rng.uniform(0, 2 * math.pi)
+    tilt = Matrix.Rotation(rng.uniform(-lean, lean), 3, "X") @ Matrix.Rotation(rng.uniform(-lean, lean), 3, "Y")
+    spin = Matrix.Rotation(yaw, 3, "Z")
+    seed = rng.random() * 50
+    for v in geo["verts"]:
+        d = v.co.normalized()
+        crag = 1 + 0.32 * n3(d * 1.7, seed) + rng.uniform(-0.08, 0.08)
+        top_bias = 1 - 0.45 * max(0.0, d.z) ** 2  # narrower towards the top, like a broken shard
+        local = Vector((d.x * width * top_bias, d.y * depth * top_bias, (d.z + 1) * 0.5 * height)) * crag
+        v.co = base + spin @ (tilt @ local)
+
+
+def sliver(bm, rng, center, length, width=0.08):
+    """A thin, sharp, three-sided glass splinter pointing in a random direction."""
+    d = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized()
+    crystal(bm, center - d * length / 2, center + d * length / 2, width, 3, rng.uniform(0, 1))
+
+
+# ---------------------------------------------------------------- Rift: a tear ripped open in space
 
 
 def ult_rift(col):
-    rng = random.Random(201)
-    C = Vector((0, 10, 6.2))
+    rng = random.Random(301)
+    C = Vector((0, 10, 6.5))
     X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
-    R = 5.2
+    n = 90
+    jag = [1 + 0.16 * n3(Vector((j * 0.35, 0, 0)), 5) + (rng.uniform(-0.12, 0.05) if rng.random() < 0.3 else 0) for j in range(n)]
 
-    bm = bmesh.new()  # a jagged crystal ring with shards bursting outwards
-    section = [(R - 0.35, 0), (R, 0.45), (R + 0.45, 0), (R, -0.45)]
-    revolve(bm, C, X, Z, Y, section, n=60)
-    for k in range(26):
-        a = 2 * math.pi * k / 26 + rng.uniform(-0.08, 0.08)
-        out = X * math.cos(a) + Z * math.sin(a)
-        base = C + out * (R - 0.2) + Y * rng.uniform(-0.3, 0.3)
-        tip = base + (out + Y * rng.uniform(-0.4, 0.4) + (X * -math.sin(a) + Z * math.cos(a)) * rng.uniform(-0.4, 0.4)).normalized() * rng.uniform(1.4, 3.2)
-        crystal(bm, base - out * 0.6, tip, rng.uniform(0.25, 0.45), rng.choice((4, 5, 6)), rng.uniform(0, 1))
-    finish(bm, "Frame", col, material("RiftCrystal", rgb(150, 240, 250), 0.6, glass=True), smooth=False)
+    def rim(j, grow=1.0):
+        """A tall, lens-shaped, ragged opening: narrow pointed ends, wider in the middle."""
+        th = 2 * math.pi * j / n
+        x = 2.4 * math.sin(th) * (abs(math.sin(th)) ** 0.25)
+        z = 5.8 * math.cos(th)
+        return C + (X * x + Z * z) * jag[j] * grow
 
-    bm = bmesh.new()  # spiral arms, pulled back into a funnel so the portal has depth
-    for k in range(6):
-        phase = 2 * math.pi * k / 6
-        pts, widths = [], []
-        for i in range(41):
-            t = i / 40
-            r = 0.3 + (R - 0.6) * t
-            a = phase + t * 2 * math.pi * 1.1
-            pts.append(C + X * (r * math.cos(a)) + Z * (r * math.sin(a)) + Y * (2.2 * (1 - t) ** 2))
-            widths.append(0.08 + 0.55 * math.sin(math.pi * t) ** 0.8)
-        ribbon(bm, pts, widths, lambda i: Y)
-    finish(bm, "Swirl", col, material("RiftSwirl", rgb(40, 220, 230), 2.5, alpha=0.75))
+    perimeter = [rim(j) for j in range(n)]
 
-    bm = bmesh.new()  # receding hex rings: the tunnel on the other side
-    for k in range(5):
-        depth = 0.8 + k * 0.9
-        r = R * (0.85 - k * 0.14)
-        spin = k * 0.35
-        corners = [C + Y * depth + (X * math.cos(spin + j * math.pi / 3) + Z * math.sin(spin + j * math.pi / 3)) * r for j in range(6)]
-        for j in range(6):
-            sweep(bm, [corners[j], corners[(j + 1) % 6]], [square(0.09), square(0.09)])
-    finish(bm, "Tunnel", col, material("RiftTunnel", rgb(30, 200, 200), 2))
+    bm = bmesh.new()  # the dark interior: a lens that bows away from the viewer, so it reads as depth
+    front_c = bm.verts.new(C + Y * 1.4)
+    back_c = bm.verts.new(C + Y * 1.9)
+    ring = [bm.verts.new(p) for p in perimeter]
+    for j in range(n):
+        k = (j + 1) % n
+        bm.faces.new((front_c, ring[k], ring[j]))
+        bm.faces.new((back_c, ring[j], ring[k]))
+    finish(bm, "Abyss", col, material("RiftAbyss", rgb(6, 12, 18), rough=1.0), smooth=False)
 
-    bm = bmesh.new()
-    ico(bm, C + Y * 0.6, 0.9, subdiv=2, squash=(1, 0.35, 1), bumps=0.05)
-    finish(bm, "Core", col, material("RiftCore", rgb(220, 255, 255), 8))
+    bm = bmesh.new()  # a thin, white-hot ragged edge with small splits running off it
+    sweep(bm, perimeter, [square(0.07)] * n, closed=True)
+    for _ in range(18):
+        j = rng.randrange(n)
+        out = (perimeter[j] - C).normalized()
+        angular_crack(bm, perimeter[j], perimeter[j] + (out + Vector((rng.uniform(-0.6, 0.6), rng.uniform(-0.3, 0.3), rng.uniform(-0.6, 0.6)))).normalized() * rng.uniform(0.5, 1.4), rng, segments=2, r=0.035)
+    finish(bm, "Edge", col, material("RiftEdge", rgb(215, 250, 255), 6), smooth=False)
 
-    bm = bmesh.new()  # reality cracking around the portal, and along the ground towards the user
-    for k in range(14):
-        a = 2 * math.pi * k / 14 + rng.uniform(-0.15, 0.15)
-        out = X * math.cos(a) + Z * math.sin(a)
-        start = C + out * (R + 0.2)
-        end = C + out * rng.uniform(R + 2.5, R + 5.5) + Y * rng.uniform(-1.5, 1.5)
-        if end.z < 0.1:
-            end.z = 0.1
-        angular_crack(bm, start, end, rng, segments=rng.choice((3, 4)), r=0.06)
-    for k in range(4):
-        start = Vector((rng.uniform(-1.5, 1.5), 9.5, 0.05))
-        end = Vector((rng.uniform(-4, 4), rng.uniform(2.5, 5), 0.05))
-        angular_crack(bm, start, end, rng, segments=4, wander=0.3, r=0.08)
-    finish(bm, "Cracks", col, material("RiftCyan", rgb(40, 220, 230), 3.5), smooth=False)
+    bm = bmesh.new()  # a soft halo hugging the edge
+    sweep(bm, [rim(j, 1.06) for j in range(n)], [circle_profile(0.32, 6)] * n, closed=True)
+    finish(bm, "Glow", col, material("RiftGlow", rgb(70, 190, 210), 1.0, alpha=0.35))
 
-    bm = bmesh.new()
-    for _ in range(34):
-        a = rng.uniform(0, 2 * math.pi)
-        r = rng.uniform(R + 0.8, R + 3.2)
-        base = C + X * (r * math.cos(a)) + Z * (r * math.sin(a)) + Y * rng.uniform(-1.2, 1.2)
-        d = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized()
-        size = rng.uniform(0.4, 1.0)
-        crystal(bm, base - d * size / 2, base + d * size / 2, size * 0.3, rng.choice((3, 4)), rng.uniform(0, 1))
-    finish(bm, "Fragments", col, material("RiftGlass", rgb(190, 245, 245), 0.5, glass=True), smooth=False)
+    bm = bmesh.new()  # faint filaments spiralling away into the depth behind the tear
+    for k in range(10):
+        j0 = int(n * k / 10)
+        pts = []
+        for i in range(31):
+            t = i / 30
+            p = perimeter[j0] - C
+            a = t * 1.8
+            rot = Matrix.Rotation(a, 3, "Y")
+            pts.append(C + Y * (1.5 + 7 * t) + rot @ (p * (1 - t) ** 1.3))
+        tube(bm, pts, [0.035 * (1 - i / 30) + 0.008 for i in range(31)], sides=4)
+    finish(bm, "Depth", col, material("RiftDepth", rgb(80, 200, 220), 1.5, alpha=0.5))
+
+    bm = bmesh.new()  # space cracking outwards from the tear, and along the ground
+    for _ in range(16):
+        j = rng.randrange(n)
+        out = (perimeter[j] - C).normalized()
+        start = perimeter[j] + out * 0.3
+        end = start + (out + Vector((rng.uniform(-0.4, 0.4), rng.uniform(-0.5, 0.5), rng.uniform(-0.4, 0.4)))).normalized() * rng.uniform(2, 5)
+        end.z = max(end.z, 0.05)
+        angular_crack(bm, start, end, rng, segments=rng.choice((3, 4, 5)), wander=0.35, r=0.03)
+    for _ in range(4):
+        angular_crack(bm, Vector((rng.uniform(-0.6, 0.6), 9.6, 0.03)), Vector((rng.uniform(-3, 3), rng.uniform(3, 5.5), 0.03)), rng, segments=5, wander=0.35, r=0.04)
+    finish(bm, "Cracks", col, material("RiftCracks", rgb(120, 225, 240), 3), smooth=False)
+
+    bm = bmesh.new()  # splinters of broken space drifting round the tear
+    for _ in range(70):
+        j = rng.randrange(n)
+        p = C + (perimeter[j] - C) * rng.uniform(1.15, 1.9) + Y * rng.uniform(-1.5, 1.5)
+        sliver(bm, rng, p, rng.uniform(0.3, 1.1), rng.uniform(0.04, 0.1))
+    finish(bm, "Shards", col, material("RiftShards", rgb(185, 225, 235), 0.4, glass=True), smooth=False)
 
 
-# ---------------------------------------------------------------- Electric: a thundercloud
+def circle_profile(r, sides):
+    return [(r * math.cos(2 * math.pi * k / sides), r * math.sin(2 * math.pi * k / sides)) for k in range(sides)]
+
+
+# ---------------------------------------------------------------- Electric: a thundercloud (bolts are generated live in Roblox)
 
 
 def ult_electric(col):
-    rng = random.Random(202)
+    rng = random.Random(302)
     CC = Vector((0, 14, 26))
-    ground = Vector((0, 14, 0))
+
+    def cloud_layer(bm, count, rx, ry, z0, rmin, rmax, squash, subdiv):
+        for _ in range(count):
+            u, v = rng.uniform(-1, 1), rng.uniform(-1, 1)
+            if u * u + v * v > 1:
+                continue
+            edge = u * u + v * v
+            p = CC + Vector((u * rx, v * ry, z0 + rng.uniform(-0.6, 1.8) * (1 - edge)))
+            ico(bm, p, rng.uniform(rmin, rmax) * (1 - 0.4 * edge), subdiv=subdiv, squash=squash, bumps=0.35, seed=rng.random() * 50)
 
     bm = bmesh.new()
-    for _ in range(46):
+    cloud_layer(bm, 150, 17, 13, 0.5, 1.6, 3.4, (1, 1, 0.7), 2)
+    finish(bm, "Cloud", col, material("StormCloud", rgb(52, 52, 62), rough=1.0), smooth=False)
+
+    bm = bmesh.new()  # a darker, flatter base where the rain falls from
+    cloud_layer(bm, 70, 14, 10.5, -1.4, 1.8, 3.2, (1, 1, 0.38), 2)
+    finish(bm, "CloudBase", col, material("StormBase", rgb(28, 28, 36), rough=1.0), smooth=False)
+
+    bm = bmesh.new()  # light trapped inside the cloud, only seen when lightning flashes
+    cloud_layer(bm, 26, 13, 10, -0.6, 1.5, 2.6, (1, 1, 0.5), 1)
+    finish(bm, "CloudGlow", col, material("StormGlow", rgb(150, 110, 230), 1.5, alpha=0.5))
+
+    bm = bmesh.new()  # thin rain in repeating columns so it can scroll down seamlessly
+    for _ in range(140):
         u, v = rng.uniform(-1, 1), rng.uniform(-1, 1)
         if u * u + v * v > 1:
             continue
-        p = CC + Vector((u * 14, v * 11, rng.uniform(-1.0, 2.5)))
-        r = rng.uniform(2.8, 5.0) * (1 - 0.35 * (u * u + v * v))
-        ico(bm, p, r, subdiv=3, squash=(1, 1, 0.6), bumps=0.2, seed=rng.random() * 10)
-    finish(bm, "Cloud", col, material("StormCloud", rgb(35, 32, 45), rough=1.0))
-
-    bm = bmesh.new()  # the underside, lit from within by the lightning
-    for _ in range(18):
-        u, v = rng.uniform(-0.8, 0.8), rng.uniform(-0.8, 0.8)
-        ico(bm, CC + Vector((u * 13, v * 10, -2.2)), rng.uniform(1.5, 2.8), subdiv=1, squash=(1, 1, 0.5), bumps=0.2, seed=rng.random() * 10)
-    finish(bm, "CloudGlow", col, material("StormGlow", rgb(140, 60, 235), 2, alpha=0.6))
-
-    bm = bmesh.new()  # rain in repeating columns so it can scroll down seamlessly
-    for _ in range(60):
-        u, v = rng.uniform(-1, 1), rng.uniform(-1, 1)
-        if u * u + v * v > 1:
-            continue
-        x, y = u * 13, 14 + v * 10
+        x, y = u * 14, 14 + v * 10.5
         z0 = rng.uniform(0, 4)
         for m in range(6):
-            z = 1 + z0 + 4 * m
-            top = Vector((x, y, z + 1.6))
-            sweep(bm, [Vector((x + 0.15, y, z)), top], [square(0.035), square(0.035)])
-    finish(bm, "Rain", col, material("StormRain", rgb(190, 170, 255), 1, alpha=0.5), smooth=False)
-
-    for k in range(6):
-        bm = bmesh.new()
-        a = 2 * math.pi * k / 6 + rng.uniform(-0.3, 0.3)
-        r = rng.uniform(3, 11)
-        hit = ground + Vector((math.cos(a) * r, math.sin(a) * r, 0))
-        top = CC + Vector((math.cos(a) * r * 0.6, math.sin(a) * r * 0.6, -2.5))
-        pts = jagged(top, hit, 6, 0.045, rng)
-        tube(bm, pts, [0.32] * len(pts), sides=6)
-        for _ in range(4):
-            src = rng.choice(pts[6:-10])
-            d = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), -rng.uniform(0.3, 1.0))).normalized()
-            bpts = jagged(src, src + d * rng.uniform(3, 6), 3, 0.25, rng)
-            tube(bm, bpts, [0.14 * (1 - i / (len(bpts) - 1)) + 0.02 for i in range(len(bpts))], sides=4)
-        revolve(bm, hit + Vector((0, 0, 0.08)), Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1)), [(1.0, 0), (1.8, 0.06), (2.4, 0), (1.8, -0.02)], n=32)
-        finish(bm, f"Bolt_{k + 1:02d}", col, material("StormBolt", rgb(245, 230, 255), 8), smooth=False)
+            z = z0 + 4 * m
+            sweep(bm, [Vector((x + 0.25, y, z)), Vector((x, y, z + 2.2))], [square(0.02), square(0.02)])
+    finish(bm, "Rain", col, material("StormRain", rgb(170, 175, 200), 0.6, alpha=0.4), smooth=False)
 
 
-# ---------------------------------------------------------------- Fire: flames pouring from both hands
+# ---------------------------------------------------------------- Fire: flames pouring from both hands (mostly particles in Roblox)
 
 
 def ult_fire(col):
-    rng = random.Random(203)
+    rng = random.Random(303)
     hands = [Vector((-0.9, 1.5, 3.2)), Vector((0.9, 1.5, 3.2))]
     merge = Vector((0, 4.5, 3.2))
-    y_end = 24.0
+    y_end = 22.0
 
     def cone_r(y):
-        return 1.0 + 4.0 * max(0.0, (y - merge.y) / (y_end - merge.y)) ** 0.8
+        return 0.8 + 3.6 * max(0.0, (y - merge.y) / (y_end - merge.y)) ** 0.85
 
     def axis_at(y):
-        return Vector((0, y, 3.2 + 0.03 * max(0.0, y - merge.y) ** 1.4))  # heat lifts the flames
+        return Vector((0, y, 3.2 + 0.035 * max(0.0, y - merge.y) ** 1.4))
 
-    bm = bmesh.new()
+    def turbulent_shell(bm, scale, seed, sides=20, steps=70, roughness=0.32):
+        rings = []
+        for i in range(steps + 1):
+            t = i / steps
+            y = merge.y - 0.5 + (y_end - merge.y + 0.5) * t
+            c = axis_at(y)
+            ring = []
+            for k in range(sides):
+                a = 2 * math.pi * k / sides
+                d = Vector((math.cos(a), 0, math.sin(a)))
+                r = cone_r(y) * scale * (1 + roughness * n3(Vector((d.x * 1.3, y * 0.28, d.z * 1.3)), seed))
+                r *= min(1.0, (1 - t) * 6 + 0.15)
+                ring.append(c + d * max(r, 0.05))
+            rings.append(ring)
+        loft(bm, rings)
+
+    bm = bmesh.new()  # the white-hot jets leaving each hand and the thin core they merge into
     for h in hands:
-        pts = [h.lerp(merge, i / 8) for i in range(9)]
-        tube(bm, pts, [0.3 + 0.25 * i / 8 for i in range(9)], sides=10)
-        ico(bm, h, 0.45, subdiv=2, bumps=0.1)
-    steps = 50
-    ys = [merge.y + (y_end - 2 - merge.y) * i / steps for i in range(steps + 1)]
-    pts = [axis_at(y) for y in ys]
-    rads = [0.55 * cone_r(y) * (1 + 0.12 * n3(Vector((0, y * 0.4, 0)), 1)) for y in ys]
-    rads[-1] = 0
-    tube(bm, pts, rads, sides=14)
-    finish(bm, "Core", col, material("FireCore", rgb(255, 240, 180), 6))
+        tube(bm, [h.lerp(merge, i / 8) for i in range(9)], [0.16 + 0.1 * i / 8 for i in range(9)], sides=8)
+    ys = [merge.y + (14 - merge.y) * i / 30 for i in range(31)]
+    tube(bm, [axis_at(y) for y in ys], [0.3 + 0.5 * (i / 30) for i in range(30)] + [0], sides=10)
+    finish(bm, "Core", col, material("FireCore", rgb(255, 235, 190), 4))
 
     bm = bmesh.new()
-    for k in range(8):
-        phase = 2 * math.pi * k / 8
-        path, rads = [], []
-        for i in range(61):
-            t = i / 60
-            y = merge.y - 1 + (y_end - merge.y + 1) * t
-            a = phase + t * 2 * math.pi * 1.6
-            r = cone_r(y) * 0.8
-            path.append(axis_at(y) + Vector((math.cos(a) * r, 0, math.sin(a) * r)))
-            lick = 0.6 + 0.4 * math.sin(t * math.pi * 9 + k)
-            rads.append((0.35 + 0.9 * t) * lick * min(1, t * 10, (1 - t) * 5))
-        rads[0] = rads[-1] = 0
-        tube(bm, path, rads, sides=8)
-    finish(bm, "Flames", col, material("FireFlames", rgb(255, 120, 20), 3))
+    turbulent_shell(bm, 0.6, 1)
+    finish(bm, "Shell", col, material("FireShell", rgb(255, 140, 50), 1.5, alpha=0.45))
 
     bm = bmesh.new()
-    for _ in range(36):
-        y = rng.uniform(merge.y + 1, y_end - 2)
-        a = rng.uniform(0, 2 * math.pi)
-        out = Vector((math.cos(a), 0, math.sin(a)))
-        side = out.cross(Vector((0, 1, 0)))
-        r0 = cone_r(y) * 0.9
-        length = rng.uniform(2, 4.5)
-        sway = rng.uniform(-0.5, 0.5)
-        path = []
-        for i in range(11):
-            t = i / 10
-            path.append(axis_at(y - length * t * 0.6) + out * (r0 + 1.6 * t ** 0.7) + side * sway * math.sin(t * math.pi * 2) + Vector((0, 0, 0.8 * t * t)))
-        rads = [rng.uniform(0.35, 0.55) * (1 - i / 10) ** 1.2 for i in range(11)]
-        rads[-1] = 0
-        tube(bm, path, rads, sides=7)
-    finish(bm, "Wisps", col, material("FireWisps", rgb(255, 60, 15), 2.5))
-
-    bm = bmesh.new()
-    for _ in range(70):
-        y = rng.uniform(merge.y, y_end + 3)
-        a = rng.uniform(0, 2 * math.pi)
-        r = cone_r(min(y, y_end)) * rng.uniform(0.6, 1.6)
-        rock(bm, rng, axis_at(min(y, y_end)) + Vector((math.cos(a) * r, y - min(y, y_end), math.sin(a) * r + rng.uniform(0, 2))), rng.uniform(0.06, 0.16))
-    finish(bm, "Embers", col, material("FireEmbers", rgb(255, 180, 60), 4), smooth=False)
+    turbulent_shell(bm, 1.0, 2, roughness=0.42)
+    finish(bm, "OuterShell", col, material("FireOuter", rgb(220, 70, 25), 1.0, alpha=0.25))
 
 
-# ---------------------------------------------------------------- Ice: a stomp raises a wall of ice
+# ---------------------------------------------------------------- Ice: a stomp raises a wall of jagged ice
 
 
 def ult_ice(col):
-    rng = random.Random(204)
+    rng = random.Random(304)
 
-    bm = bmesh.new()
-    revolve(bm, Vector((0, 0, 0.25)), Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1)), [(2.6, 0), (3.4, 0.25), (4.2, 0), (3.4, -0.1)], n=48)
-    finish(bm, "Shockwave", col, material("IceShock", rgb(200, 240, 255), 3, alpha=0.6))
+    bm = bmesh.new()  # frost spreading across the ground
+    spikes = [rng.uniform(0.7, 1.2) for _ in range(90)]
+    flat_disc(bm, Vector((0, 7, 0.02)), lambda a: (8 + 3 * math.sin(a)) * spikes[int((a / (2 * math.pi)) * 90) % 90], thickness=0.03, n=90)
+    finish(bm, "Frost", col, material("IceFrost", rgb(205, 230, 240), 0.2, glass=True), smooth=False)
 
-    bm = bmesh.new()  # frost racing across the ground towards the wall
-    spikes = [rng.uniform(0.75, 1.15) for _ in range(72)]
-    flat_disc(bm, Vector((0, 6, 0.02)), lambda a: (8.5 + 3.5 * math.sin(a)) * spikes[int((a / (2 * math.pi)) * 72) % 72], thickness=0.05)
-    finish(bm, "Frost", col, material("IceFrost", rgb(220, 245, 255), 0.6, glass=True), smooth=False)
+    bm = bmesh.new()  # cracks running from the stomp to the wall
+    for k in range(9):
+        a = math.radians(-55 + 110 * k / 8 + rng.uniform(-5, 5))
+        end = Vector((14 * math.sin(a), 14 * math.cos(a), 0.03))
+        angular_crack(bm, Vector((0, 0.6, 0.03)), end, rng, segments=7, wander=0.18, r=0.05)
+        for _ in range(2):
+            src = Vector((0, 0.6, 0.03)).lerp(end, rng.uniform(0.3, 0.8))
+            angular_crack(bm, src, src + Vector((rng.uniform(-2.5, 2.5), rng.uniform(-1, 2.5), 0)), rng, segments=3, wander=0.3, r=0.03)
+    finish(bm, "Cracks", col, material("IceCracks", rgb(170, 225, 245), 2), smooth=False)
 
-    for k in range(7):  # spikes erupting along the path, growing towards the wall
+    for k in range(9):  # jagged spikes bursting up along the path, bigger towards the wall
         bm = bmesh.new()
-        y = 2.2 + k * 1.55
-        size = 0.6 + k * 0.32
-        for _ in range(3):
-            base = Vector((rng.uniform(-0.8, 0.8), y + rng.uniform(-0.4, 0.4), -0.3))
-            d = Vector((rng.uniform(-0.5, 0.5), rng.uniform(0.1, 0.6), 1)).normalized()
-            crystal(bm, base, base + d * size * rng.uniform(2.0, 3.2), size * rng.uniform(0.25, 0.4), 6, rng.uniform(0, 1))
-        finish(bm, f"Spike_{k + 1:02d}", col, material("IceShards", rgb(190, 235, 255), 0.8, glass=True), smooth=False)
+        y = 2.0 + k * 1.3
+        size = 0.5 + k * 0.28
+        for _ in range(rng.randint(3, 5)):
+            base = Vector((rng.uniform(-1.2, 1.2), y + rng.uniform(-0.5, 0.5), -0.4))
+            d = Vector((rng.uniform(-0.6, 0.6), rng.uniform(0.0, 0.7), 1)).normalized()
+            crystal(bm, base, base + d * size * rng.uniform(1.8, 3.4), size * rng.uniform(0.18, 0.35), rng.choice((3, 4, 5)), rng.uniform(0, 1))
+        finish(bm, f"Spike_{k + 1:02d}", col, material("IceSpikes", rgb(190, 225, 240), 0.3, glass=True), smooth=False)
 
-    n = 11
-    for k in range(n):  # the wall: an arc of crystal pillars
-        bm = bmesh.new()
-        th = math.radians(-58 + 116 * k / (n - 1))
-        center = Vector((14.5 * math.sin(th), 14.5 * math.cos(th), 0))
-        out = Vector((math.sin(th), math.cos(th), 0))
+    n = 14
+    for k in range(n):  # the wall: an arc of craggy slabs with splintered tops, each with a denser core
+        shell, core = bmesh.new(), bmesh.new()
+        th = math.radians(-60 + 120 * k / (n - 1) + rng.uniform(-2, 2))
+        center = Vector((14.5 * math.sin(th), 14.5 * math.cos(th), -0.8))
         tangent = Vector((math.cos(th), -math.sin(th), 0))
-        h = rng.uniform(13, 18) * (1 - 0.25 * abs(k - (n - 1) / 2) / ((n - 1) / 2))
-        crystal(bm, center - Vector((0, 0, 1.5)), center + Vector((0, 0, h)) + out * 1.2, rng.uniform(1.5, 1.9), 6, rng.uniform(0, 1))
-        for s in (-1, 1):
-            base = center + tangent * s * 1.1 + out * rng.uniform(-0.4, 0.6) - Vector((0, 0, 1))
-            tip = base + Vector((0, 0, h * rng.uniform(0.45, 0.7))) + tangent * s * rng.uniform(0.6, 1.8) + out * rng.uniform(0.3, 1.5)
-            crystal(bm, base, tip, rng.uniform(0.8, 1.2), 6, rng.uniform(0, 1))
-        finish(bm, f"Wall_{k + 1:02d}", col, material("IceCrystal", rgb(150, 215, 255), 0.6, glass=True), smooth=False)
+        out = Vector((math.sin(th), math.cos(th), 0))
+        falloff = 1 - 0.3 * abs(k - (n - 1) / 2) / ((n - 1) / 2)
+        for s in range(rng.randint(4, 6)):
+            base = center + tangent * rng.uniform(-1.4, 1.4) + out * rng.uniform(-0.8, 0.8)
+            h = rng.uniform(8, 16) * falloff
+            w = rng.uniform(1.0, 1.7)
+            slab(shell, rng, base, w, w * rng.uniform(0.5, 0.8), h, lean=0.18)
+            slab(core, rng, base + out * 0.1, w * 0.55, w * 0.35, h * 0.8, lean=0.1)
+            for _ in range(rng.randint(1, 3)):  # splinters on the top
+                top = base + Vector((rng.uniform(-0.5, 0.5), rng.uniform(-0.4, 0.4), h * rng.uniform(0.7, 0.92)))
+                d = Vector((rng.uniform(-0.4, 0.4), rng.uniform(-0.3, 0.5), 1)).normalized()
+                crystal(shell, top, top + d * rng.uniform(1.2, 3.2), rng.uniform(0.15, 0.32), rng.choice((3, 4)), rng.uniform(0, 1))
+        finish(shell, f"Wall_{k + 1:02d}", col, material("IceWall", rgb(180, 215, 230), 0.25, glass=True), smooth=False)
+        finish(core, f"WallCore_{k + 1:02d}", col, material("IceWallCore", rgb(95, 145, 180), rough=0.2), smooth=False)
 
 
-# ---------------------------------------------------------------- Nature: a ring of glowing trees
-
-
-def ult_nature(col):
-    rng = random.Random(205)
-    trees = 6
-
-    bm = bmesh.new()  # glowing roots spreading from the user out to every tree
-    for k in range(trees * 2):
-        a = 2 * math.pi * k / (trees * 2) + rng.uniform(-0.1, 0.1)
-        reach = 11 if k % 2 == 0 else rng.uniform(5, 8)
-        pts = []
-        for i in range(25):
-            t = i / 24
-            wob = 0.6 * math.sin(t * math.pi * 3 + k)
-            r = 0.8 + (reach - 0.8) * t
-            pts.append(Vector((math.cos(a) * r - math.sin(a) * wob, math.sin(a) * r + math.cos(a) * wob, 0.08)))
-        tube(bm, pts, [0.2 * (1 - t) + 0.05 for t in (i / 24 for i in range(25))], sides=6)
-    finish(bm, "Roots", col, material("NatureRoots", rgb(90, 230, 130), 3))
-
-    def branch_path(start, direction, length, steps=8):
-        pts = []
-        d = direction.normalized()
-        p = start.copy()
-        for i in range(steps + 1):
-            pts.append(p.copy())
-            d = (d + Vector((0, 0, 0.12))).normalized()
-            p = p + d * (length / steps)
-        return pts
-
-    for k in range(trees):
-        a = 2 * math.pi * k / trees + math.pi / trees
-        base = Vector((math.cos(a) * 11, math.sin(a) * 11, 0))
-        height = rng.uniform(9, 12)
-        trunk_bm, canopy_bm, glow_bm = bmesh.new(), bmesh.new(), bmesh.new()
-
-        trunk = []
-        for i in range(17):
-            t = i / 16
-            sway = Vector((0.5 * math.sin(t * 3 + k), 0.5 * math.cos(t * 2.5 + k), 0))
-            trunk.append(base + sway * t + Vector((0, 0, height * t - 0.5)))
-        tube(trunk_bm, trunk, [0.75 * (1 - t) ** 0.8 + 0.18 + 0.5 * max(0, 0.15 - t) * 4 for t in (i / 16 for i in range(17))], sides=10)
-        for r in range(5):  # flared roots
-            ra = rng.uniform(0, 2 * math.pi)
-            d = Vector((math.cos(ra), math.sin(ra), -0.3))
-            tube(trunk_bm, branch_path(base + Vector((0, 0, 0.6)), d, rng.uniform(1.6, 2.4), 6)[::-1][::-1], [0.35 * (1 - i / 6) + 0.05 for i in range(7)], sides=6)
-
-        tips = [trunk[-1]]
-        for b in range(5):
-            i = rng.randrange(8, 14)
-            ba = rng.uniform(0, 2 * math.pi)
-            d = Vector((math.cos(ba), math.sin(ba), rng.uniform(0.4, 0.9)))
-            pts = branch_path(trunk[i], d, rng.uniform(2.5, 4.0))
-            tube(trunk_bm, pts, [0.3 * (1 - j / 8) + 0.06 for j in range(9)], sides=6)
-            tips.append(pts[-1])
-        finish(trunk_bm, f"Trunk_{k + 1:02d}", col, material("NatureTrunk", rgb(70, 55, 40), rough=0.9))
-
-        for tip in tips:
-            for _ in range(rng.randint(4, 6)):
-                ico(canopy_bm, tip + Vector((rng.uniform(-1.2, 1.2), rng.uniform(-1.2, 1.2), rng.uniform(-0.4, 1.0))), rng.uniform(0.9, 1.6), subdiv=2, bumps=0.25, seed=rng.random() * 10)
-            for _ in range(2):
-                ico(glow_bm, tip + Vector((rng.uniform(-1.4, 1.4), rng.uniform(-1.4, 1.4), rng.uniform(-1.6, -0.8))), 0.22, subdiv=1, bumps=0.05)
-        finish(canopy_bm, f"Canopy_{k + 1:02d}", col, material("NatureCanopy", rgb(110, 255, 160), 0.9, alpha=0.8))
-        finish(glow_bm, f"Glow_{k + 1:02d}", col, material("NatureGlow", rgb(220, 255, 180), 6))
-
-    bm = bmesh.new()  # glowing leaves drifting through the grove
-    for _ in range(70):
-        a = rng.uniform(0, 2 * math.pi)
-        r = rng.uniform(3, 13)
-        p = Vector((math.cos(a) * r, math.sin(a) * r, rng.uniform(1, 8)))
-        d = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-0.3, 0.3))).normalized()
-        leaf(bm, p, d, Vector((0, 0, 1)), rng.uniform(0.3, 0.5), rng.uniform(0.1, 0.16))
-    finish(bm, "Petals", col, material("NaturePetals", rgb(150, 255, 190), 3))
-
-
-# ---------------------------------------------------------------- Wind: two giant hands of air clap
-
-
-def hand(bm, side, rng):
-    """A giant open hand, palm facing the centre line, fingers up. side = -1 left hand, +1 right hand."""
-    palm_c = Vector((0, 0, 0))
-    ico(bm, palm_c, 1.0, subdiv=3, squash=(0.45, 1.25, 1.5), bumps=0.04)
-    # fingers along +Z, spread across Y; thumb towards the user (-Y)
-    for j, (dy, length) in enumerate(((0.85, 2.3), (0.3, 2.7), (-0.25, 2.6), (-0.8, 2.1))):
-        pts = []
-        for i in range(9):
-            t = i / 8
-            pts.append(Vector((-side * 0.15 * t * t, dy * (1 + 0.1 * t), 1.2 + length * t)))
-        tube(bm, pts, [0.36 - 0.06 * t for t in (i / 8 for i in range(8))] + [0.0], sides=10)
-    pts = []
-    for i in range(9):
-        t = i / 8
-        pts.append(Vector((-side * 0.25 * t, -1.0 - 1.3 * t, 0.2 + 1.2 * t)))
-    tube(bm, pts, [0.4 - 0.08 * t for t in (i / 8 for i in range(8))] + [0.0], sides=10)
+# ---------------------------------------------------------------- Wind: the user claps, and a blast of wind bursts out
 
 
 def ult_wind(col):
-    rng = random.Random(207)
-    W = Vector((0, 7, 7))
-    scale = 1.6
-    for idx, side in ((1, -1), (2, 1)):
-        bm = bmesh.new()
-        hand(bm, side, rng)
-        m = Matrix.Translation(W + Vector((side * 0.55 * scale + side * 0.15, 0, -1.2 * scale))) @ Matrix.Scale(scale, 4)
-        bmesh.ops.transform(bm, matrix=m, verts=bm.verts)
-        finish(bm, f"Hand_{idx:02d}", col, material("WindHand", rgb(170, 255, 230), 1.2, alpha=0.45))
+    rng = random.Random(307)
+    K = Vector((0, 1.6, 4.3))  # where the user's hands meet, in front of the chest
+    X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
 
-    Y, X, Z = Vector((0, 1, 0)), Vector((1, 0, 0)), Vector((0, 0, 1))
-    bm = bmesh.new()  # the shockwave: a cone-shaped ring of compressed air opening forwards
-    revolve(bm, W, X, Z, Y, [(2.4, 0.0), (2.7, 0.6), (4.2, 2.2), (2.6, 0.4)], n=56)
-    revolve(bm, W + Y * 1.0, X, Z, Y, [(1.2, 0.0), (1.4, 0.3), (2.3, 1.3), (1.35, 0.2)], n=40)
-    finish(bm, "Shockwave", col, material("WindShock", rgb(200, 255, 240), 1.5, alpha=0.5))
+    bm = bmesh.new()  # the instant of the clap: a sharp starburst of compressed air
+    for _ in range(36):
+        d = Vector((rng.uniform(-1, 1), rng.uniform(-0.3, 1.0), rng.uniform(-1, 1))).normalized()
+        crystal(bm, K + d * 0.2, K + d * rng.uniform(0.8, 2.4), rng.uniform(0.03, 0.07), 3, rng.uniform(0, 1))
+    ico(bm, K, 0.3, subdiv=2, bumps=0.1)
+    finish(bm, "Flash", col, material("WindFlash", rgb(240, 250, 250), 3, alpha=0.7), smooth=False)
 
-    bm = bmesh.new()  # streaks bursting forwards from the clap
-    for k in range(18):
-        a = 2 * math.pi * k / 18 + rng.uniform(-0.1, 0.1)
-        out = X * math.cos(a) + Z * math.sin(a)
-        length = rng.uniform(14, 22)
-        spread = rng.uniform(3, 6)
-        pts = [W + Y * (length * t) + out * (0.6 + spread * t) for t in (i / 20 for i in range(21))]
-        ribbon(bm, pts, [0.25 * math.sin(math.pi * (i / 20)) ** 0.7 + 0.01 for i in range(21)], lambda i, out=out: out)
-    finish(bm, "Streams", col, material("WindStream", rgb(160, 240, 215), 1.0))
+    bm = bmesh.new()  # thin shockwave shells bulging forwards from the hands
+    for r0, r1, depth, th in ((0.6, 2.2, 1.6, 0.05), (1.1, 3.6, 2.6, 0.04), (1.8, 5.2, 3.4, 0.03)):
+        section = [(r0, 0.0), (r1 * 0.75, depth * 0.55), (r1, depth), (r1 * 0.75 - th, depth * 0.55 - th)]
+        revolve(bm, K, X, Z, Y, section, n=64)
+    finish(bm, "Rings", col, material("WindRings", rgb(215, 235, 235), 0.6, alpha=0.25))
 
-    bm = bmesh.new()  # crescent blades that fly out with the shockwave
-    for k in range(6):
-        a0 = 2 * math.pi * k / 6
-        r = rng.uniform(3.0, 4.2)
-        rings = []
-        for i in range(31):
-            u = i / 30
-            a = a0 + math.radians(80) * u
-            out = X * math.cos(a) + Z * math.sin(a)
-            c = W + Y * (2.0 - 0.8 * u) + out * r
-            w = 0.5 * math.sin(math.pi * u) ** 0.6
-            th = 0.06 * math.sin(math.pi * u) ** 0.6 + 0.005
-            rings.append([c + Y * w, c + out * th, c - Y * w * 0.35, c - out * th])
-        loft(bm, rings)
-    finish(bm, "Blades", col, material("WindBlade", rgb(215, 255, 240), 1.5))
+    bm = bmesh.new()  # a flat ring of air rushing out along the ground
+    revolve(bm, Vector((0, 0.5, 0.15)), X, Y, Z, [(2.0, 0.0), (2.8, 0.25), (3.6, 0.05), (2.8, 0.08)], n=64)
+    finish(bm, "GroundRing", col, material("WindGround", rgb(205, 215, 210), 0.4, alpha=0.3))
+
+    bm = bmesh.new()  # streaks of air shooting out, mostly forwards
+    for _ in range(46):
+        d = Vector((rng.uniform(-1, 1), rng.uniform(-0.2, 1.4), rng.uniform(-0.6, 0.8))).normalized()
+        length = rng.uniform(5, 14)
+        bend = Vector((rng.uniform(-0.15, 0.15), 0, rng.uniform(0, 0.12)))
+        pts = [K + d * (0.6 + length * t) + bend * (length * t) ** 1.5 for t in (i / 16 for i in range(17))]
+        up = Z if abs(d.z) < 0.8 else X
+        ribbon(bm, pts, [0.06 * math.sin(math.pi * (i / 16)) ** 0.6 + 0.004 for i in range(17)], lambda i, up=up, d=d: d.cross(up).normalized(), thick=0.012)
+    finish(bm, "Streaks", col, material("WindStreaks", rgb(215, 232, 230), 0.5, alpha=0.45))
+
+    bm = bmesh.new()  # grit and pebbles around the feet that the blast kicks away
+    for _ in range(70):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(1.2, 3.2)
+        rock(bm, rng, Vector((math.cos(a) * r, math.sin(a) * r, 0.08)), rng.uniform(0.04, 0.13))
+    finish(bm, "Debris", col, material("WindDebris", rgb(120, 115, 105), rough=0.9), smooth=False)
 
 
 # ---------------------------------------------------------------- Void: a black hole
@@ -556,12 +463,11 @@ def ult_void(col):
 
 
 ULTIMATES = {
-    "Rift": (ult_rift, (-14, -6, 12), (0, 9, 5)),
-    "Electric": (ult_electric, (-40, -28, 26), (0, 13, 13)),
-    "Fire": (ult_fire, (-16, -4, 10), (0, 11, 3)),
-    "Ice": (ult_ice, (-27, -19, 17), (0, 10, 5)),
-    "Nature": (ult_nature, (-29, -29, 21), (0, 0, 4)),
-    "Wind": (ult_wind, (21, 1, 10), (0, 10, 7)),
+    "Rift": (ult_rift, (-18, -8, 10), (0, 9, 6)),
+    "Electric": (ult_electric, (-46, -32, 18), (0, 13, 15)),
+    "Fire": (ult_fire, (-15, -5, 9), (0, 11, 3)),
+    "Ice": (ult_ice, (-25, -17, 14), (0, 10, 5)),
+    "Wind": (ult_wind, (11, 15, 7), (0, 4, 3.5)),
     "Void": (ult_void, (-22, -10, 14), (0, 16, 8)),
 }
 
