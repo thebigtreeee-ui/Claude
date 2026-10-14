@@ -160,7 +160,7 @@ def ult_rift(col):
 
     perimeter = [rim(j) for j in range(n)]
 
-    bm = bmesh.new()  # the dark interior: a lens that bows away from the viewer, so it reads as depth
+    bm = bmesh.new()  # the blinding white interior: a lens that bows away from the viewer, so it reads as depth
     front_c = bm.verts.new(C + Y * 1.4)
     back_c = bm.verts.new(C + Y * 1.9)
     ring = [bm.verts.new(p) for p in perimeter]
@@ -168,7 +168,7 @@ def ult_rift(col):
         k = (j + 1) % n
         bm.faces.new((front_c, ring[k], ring[j]))
         bm.faces.new((back_c, ring[j], ring[k]))
-    finish(bm, "Abyss", col, material("RiftAbyss", rgb(6, 12, 18), rough=1.0), smooth=False)
+    finish(bm, "Abyss", col, material("RiftAbyss", rgb(245, 252, 255), 5), smooth=False)
 
     bm = bmesh.new()  # a thin, white-hot ragged edge with small splits running off it
     sweep(bm, perimeter, [square(0.07)] * n, closed=True)

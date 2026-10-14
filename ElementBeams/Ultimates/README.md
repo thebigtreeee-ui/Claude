@@ -11,7 +11,7 @@ fire, smoke, mist and sparks on top, which Blender can't preview.*
 
 | Element | Ultimate | What happens | Length |
 |---|---|---|---|
-| **Rift** | Rips open a rift | Cracks splinter through the air, then a ragged slit rips wide into a dark tear with a white-hot edge. Filaments spiral away into its depth, splinters of space drift round it, cyan motes and dark wisps leak out. It snaps shut with a flash | 6.5 s |
+| **Rift** | Rips open a rift | Cracks splinter through the air, then a ragged slit rips wide into a blinding white tear with a white-hot edge. Filaments spiral away into its depth, splinters of space drift round it, cyan motes and dark wisps leak out. It snaps shut with a flash | 6.5 s |
 | **Electric** | Thunderstorm | A heavy black cloud boils up overhead, churning with smoke, and rain pours. Lightning strikes at random in an irregular rhythm, sometimes two at once. Every bolt is generated fresh, with branches, a double flicker, sparks, dust and a flash lighting the ground and cloud | 7.5 s |
 | **Fire** | Flames from the hands | Particle fire pours from both hands into a roaring stream, with a white-hot core, heat-shimmer shells, embers and smoke rolling off the end. A flickering orange light washes over everything | 6.2 s |
 | **Ice** | Stomp → ice wall | The stomp throws up ice chips and mist, frost and cracks race across the ground, spikes punch up along the path, then an arc of craggy, splintered ice slabs bursts up section by section with a rumble. It shatters in the same order | 7.4 s |

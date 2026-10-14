@@ -27,7 +27,7 @@ local Smooth = Enum.Material.SmoothPlastic
 -- Part name -> look. Numbered parts (Wall_03, Spike_05...) use the style of their base name.
 ElementUltimates.Styles = {
 	Rift = {
-		Abyss = style(5, 10, 16, Smooth),
+		Abyss = style(245, 252, 255, Neon), -- the blinding white inside of the tear
 		Edge = style(215, 250, 255, Neon),
 		Glow = style(70, 190, 210, ForceField, 0),
 		Depth = style(80, 200, 220, Neon, 0.5),
