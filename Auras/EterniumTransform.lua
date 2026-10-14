@@ -547,13 +547,14 @@ local function cinematic(ctx)
 	local function shot(t)
 		if t < 1.0 then -- low and close, sliding round the front as the ground starts to crack
 			local e = easeInOut(t / 1.0)
-			return orbit(-40 + 28 * e, 9 - e, 1.3, 3.6), 70
+			return orbit(-40 + 28 * e, 11 - e, 1.3, 3.6), 70
 		elseif t < 2.0 then -- high and wide from behind: the rocks rising, the cracks spreading
 			local e = easeInOut(t - 1.0)
 			return orbit(150 + 50 * e, 15, 8 - e, 2.4), 70
-		elseif t < BURST then -- slow push in to the face as the power peaks
+		elseif t < BURST then -- slow push in to the face as the power peaks: a long-lens zoom from low
+			-- down, kept back past the floating rocks and rings so the camera never clips into them
 			local e = easeInOut((t - 2.0) / (BURST - 2.0))
-			return orbit(8 - 6 * e, 6 - 2.6 * e, 4.4 + 0.2 * e, 4.6), 70 - 16 * e
+			return orbit(8 - 6 * e, 10.5 - 1.3 * e, 2.6 + 0.8 * e, 4.5), 58 - 24 * e
 		else -- the burst: cut wide and low, FOV punch, then ease into the hero stance
 			local e = easeOut(phase(t, BURST, SETTLE))
 			return orbit(-22 + 6 * e, 17 - 3 * e, 1.1 + 0.3 * e, 4.8), 96 - 24 * easeOut(phase(t, BURST, BURST + 0.35))
