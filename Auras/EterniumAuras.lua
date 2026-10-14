@@ -34,6 +34,7 @@ EterniumAuras.Textures = {
 	PB_Flame = "", PB_Smoke = "", PB_Wisp = "",
 	DW_Rib = "", DW_Membrane = "", DW_Feather = "", DW_Slash = "",
 	SS_Band = "", SS_Mote = "", SS_Ripple = "", SS_Flare = "",
+	TX_Ring = "", TX_Pillar = "", TX_Flash = "", -- the transformation burst (EterniumTransform)
 }
 
 local BUILTIN = {
@@ -52,6 +53,7 @@ local FALLBACK = {
 	PB_Flame = BUILTIN.fire, PB_Smoke = BUILTIN.smoke, PB_Wisp = BUILTIN.spark,
 	DW_Feather = BUILTIN.spark, DW_Slash = BUILTIN.spark,
 	SS_Band = BUILTIN.smoke, SS_Mote = BUILTIN.spark, SS_Ripple = BUILTIN.spark, SS_Flare = BUILTIN.spark,
+	TX_Ring = BUILTIN.spark, TX_Flash = BUILTIN.spark,
 }
 
 local function texture(name)
@@ -61,6 +63,7 @@ local function texture(name)
 	end
 	return FALLBACK[name] or ""
 end
+EterniumAuras.texture = texture
 
 -- Your existing ignite / loop sounds per aura ("rbxassetid://..."); leave empty for silence.
 EterniumAuras.Sounds = {}

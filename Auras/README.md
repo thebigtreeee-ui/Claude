@@ -89,12 +89,80 @@ aura:Destroy()
 Aura names: `LimitBreaker`, `VoidCurrent`, `AzureSurge`, `FrostCrown`, `VerdantBloom`, `UmbralVeil`,
 `RadiantEdge`, `PhantomBlaze`, `DuskWings`, `SilverSheen`.
 
-### 4. Retire the old system
+### 4. Transformations (`EterniumTransform.lua`)
+Every aura gets the same 3.5-second transformation spine, plus its own build-up and finish.
+
+| Time | Phase | What happens |
+|---|---|---|
+| 0 – 3 s | **Build-up** | The ground cracks outward, rocks tear loose and float, the air shakes, the charge glow swells, streams of energy spiral in, and the player can't move |
+| 3 s | **Burst** | A blinding flash, two shockwaves across the ground, a pillar of light, and the rocks blasted away |
+| 3 – 3.5 s | **Settle** | The player lands in the powered-up stance while the debris keeps flying |
+
+**The transforming player gets a cinematic:**
+- Four camera shots:
+  - Low orbit at the front.
+  - High and wide from behind.
+  - A push-in to the face.
+  - A wide cut at the burst with an FOV punch.
+- A shake that builds up, a colour grade that drains then pops, and a screen flash.
+- At 3.5 s the camera blends back to the player's own view.
+
+**Everyone else** sees all the effects, but their camera is never touched.
+
+| Aura | Build-up | Finish |
+|---|---|---|
+| Limit Breaker | Lightning strikes down faster and faster, arcs crawl over the ground from the feet | A giant strike with four side bolts |
+| Azure Surge | A storm cloud gathers overhead, arcs crackle round the body, lightning lashes the ground | Twelve bolts burst outwards |
+| Phantom Blaze | Flames burst from the ground in a widening, turning ring | A roar of fire and a central flame jet |
+| Frost Crown | Ice crystals erupt in a widening ring | The crystals shatter outward into bright shards |
+| Verdant Bloom | Leaves and petals whirl up, faster and faster | A leaf explosion and a ripple |
+| Void Current | Dark tendrils reach up and a sphere of darkness closes in | The sphere shatters and dark flame bursts out |
+| Umbral Veil | Tendrils and the closing darkness, fizzing with static | The sphere shatters into glitch static |
+| Silver Sheen | Columns of light rise; rings pulse like a speeding heartbeat | The columns collapse into a silver flare |
+| Dusk Wings | A wind funnel twists up round the body | Two wings of light sweep open |
+| Radiant Edge | A sword of light forms in the raised hand | One slash with a light trail, then the blade dissolves |
+
+**Setup:**
+1. Put the module next to `EterniumAuras` in `ReplicatedStorage.Eternium` as a ModuleScript named
+   `EterniumTransform`.
+2. Add a RemoteEvent, for example `ReplicatedStorage.Eternium.TransformEvent`.
+3. Wire it up:
+
+```lua
+-- server: start the transformation everywhere, then empower at the 3-second burst
+TransformEvent:FireAllClients(character, "FrostCrown", { Main = main, Accent = accent, Glow = glow })
+task.delay(3, function()
+	character:SetAttribute("AuraStage", 2) -- and any gameplay buffs
+end)
+```
+
+```lua
+-- client (the same LocalScript that calls EterniumAuras.watch())
+local EterniumTransform = require(game.ReplicatedStorage.Eternium.EterniumTransform)
+TransformEvent.OnClientEvent:Connect(function(character, aura, colors)
+	EterniumTransform.play(character, aura, colors)
+end)
+```
+
+**Behaviour:**
+- Only the player's own client moves their camera and freezes their movement.
+- Walk speed, jump and camera are restored at 3.5 s, and also if the transformation is cancelled
+  (`handle:Cancel()`) or the character despawns mid-way.
+- `play` also takes `{ onBurst = fn, onFinished = fn }`.
+
+**Optional extras:**
+- Animations: fill `EterniumTransform.Animations` (`Buildup`, `Burst`, `Stance`).
+- Sounds, per aura: `EterniumTransform.Sounds.FrostCrown = { Buildup = "rbxassetid://...", Burst = "rbxassetid://..." }`.
+
+It uses the `TX_Ring`, `TX_Pillar` and `TX_Flash` textures, plus each aura's own, from `EterniumAuras.Textures`.
+
+### 5. Retire the old system
 Once the new auras are in, the old invisible-accessory auras and the packs in
 `ReplicatedStorage.Eternium.Assets.Auras` (including the unused Spiky and GoldSpiky) can be removed.
 
 ## Tweaking
 - `EterniumAuras.Defaults`: each aura's default Main, Accent and Glow.
+- `EterniumTransform.Signatures.<Aura>`: each aura's transformation build-up and finish.
 - `EterniumAuras.Designs.<Aura>`: each aura's layers (`build`), motion (`update`) and ignite burst
   (`ignite`), all written out by hand so you can adjust rates, sizes and speeds directly.
 - Textures are regenerated with `python tools/build_aura_textures.py`.

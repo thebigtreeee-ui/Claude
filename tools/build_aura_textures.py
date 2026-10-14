@@ -600,6 +600,35 @@ def ss_flare():
     return finish(to_img(a).resize((S * SS, S * SS)))
 
 
+# ---------------------------------------------------------------- transformation (shared by the burst)
+
+def tx_ring():
+    """Shockwave racing across the ground: a sharp leading edge with a soft wake inside."""
+    a = radial(power=1)
+    edge = np.clip(1 - np.abs(a - 0.06) / 0.035, 0, 1) ** 1.2
+    wake = np.clip((a - 0.06) / 0.35, 0, 1) ** 2 * (a > 0.06) * 0.35
+    return finish(to_img(np.clip(edge + wake, 0, 1)).resize((S * SS, S * SS)))
+
+
+def tx_pillar():
+    """Beam texture across its width: a column of light with a white-hot core."""
+    w, h = 256, 128
+    y, x = np.mgrid[0:h, 0:w]
+    v = np.abs(y / h - 0.5) * 2
+    a = np.clip(1 - v, 0, 1) ** 2.2 + np.clip(1 - v / 0.25, 0, 1) * 0.8
+    shade = 0.6 + 0.4 * np.clip(1 - v / 0.25, 0, 1)
+    return Image.merge("RGBA", (to_img(shade),) * 3 + (to_img(np.clip(a, 0, 1)),))
+
+
+def tx_flash():
+    y, x = np.mgrid[0:S, 0:S]
+    dx, dy = x / S - 0.5, y / S - 0.5
+    ang = np.arctan2(dy, dx)
+    d = np.sqrt(dx * dx + dy * dy)
+    rays = (np.abs(np.cos(ang * 6)) ** 24) * np.clip(1 - d * 2, 0, 1) * 0.8
+    return finish(to_img(np.clip(radial(power=2.5) + rays, 0, 1)).resize((S * SS, S * SS)))
+
+
 TEXTURES = {
     "Glow": glow,
     "LB_Aura": lb_aura, "LB_Ember": lb_ember, "LB_Spark": lb_spark, "LB_Dust": lb_dust, "LB_Ring": lb_ring, "LB_Flare": lb_flare,
@@ -611,6 +640,7 @@ TEXTURES = {
     "RE_Edge": re_edge, "RE_Wisp": re_wisp, "RE_Halo": re_halo, "RE_Shard": re_shard,
     "PB_Flame": pb_flame, "PB_Smoke": pb_smoke, "PB_Wisp": pb_wisp,
     "DW_Rib": dw_rib, "DW_Membrane": dw_membrane, "DW_Feather": dw_feather, "DW_Slash": dw_slash,
+    "TX_Ring": tx_ring, "TX_Pillar": tx_pillar, "TX_Flash": tx_flash,
     "SS_Band": ss_band, "SS_Mote": ss_mote, "SS_Ripple": ss_ripple, "SS_Flare": ss_flare,
 }
 
