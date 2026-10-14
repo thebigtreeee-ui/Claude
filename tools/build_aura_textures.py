@@ -88,35 +88,43 @@ def glow():
 
 # ---------------------------------------------------------------- Limit Breaker: rising helix of power
 
-def lb_trail():
-    """Trail texture (U along the trail): a bright head streaking into fine fading filaments."""
-    w, h = 512, 64
-    y, x = np.mgrid[0:h, 0:w]
-    u = x / w
-    v = np.abs(y / h - 0.5) * 2
-    core = np.clip(1 - v / 0.35, 0, 1) ** 1.5
-    fil = 0.0
-    rng = np.random.default_rng(3)
-    for _ in range(7):
-        off = rng.uniform(-0.7, 0.7)
-        fil = np.maximum(fil, np.clip(1 - np.abs(v * np.sign(y / h - 0.5) - off) / 0.06, 0, 1) * rng.uniform(0.4, 1))
-    a = np.maximum(core, fil * 0.8) * (u ** 0.6)
-    shade = 0.55 + 0.45 * core
-    img = Image.merge("RGBA", (to_img(shade), to_img(shade), to_img(shade), to_img(a)))
-    return img
-
-
-def lb_streak():
-    """Particle texture for VelocityParallel particles: a vertical streak, brightest at the top."""
-    return lb_trail().rotate(90, expand=True).resize((128, 512))
-
-
-def lb_chevron():
+def lb_aura():
+    """One flame-spike of a Super Saiyan aura: a tall, narrow tongue with a white-hot core and soft edge."""
     img = canvas()
     d = ImageDraw.Draw(img)
-    poly(d, [(128, 40), (200, 130), (172, 130), (128, 80), (84, 130), (56, 130)])
-    poly(d, [(128, 120), (180, 190), (160, 190), (128, 150), (96, 190), (76, 190)], 150)
-    return finish(img, blur=1.2)
+    poly(d, flame_shape(128, 252, 245, 92, 0.05, 3, 11))
+    a = img.filter(ImageFilter.GaussianBlur(2.5 * SS))
+    core = Image.new("L", img.size, 0)
+    poly(ImageDraw.Draw(core), flame_shape(128, 240, 190, 40, 0.04, 1, 12))
+    core = np.asarray(core.filter(ImageFilter.GaussianBlur(5 * SS)), np.float32) / 255
+    shade = to_img(0.55 + 0.45 * core)
+    return finish(a, shade)
+
+
+def lb_ember():
+    img = canvas()
+    d = ImageDraw.Draw(img)
+    poly(d, [(128, 40), (146, 128), (128, 216), (110, 128)])
+    glow_ = img.filter(ImageFilter.GaussianBlur(10 * SS))
+    a = np.maximum(np.asarray(img, np.float32), np.asarray(glow_, np.float32) * 1.4) / 255
+    return finish(to_img(np.clip(a, 0, 1)))
+
+
+def lb_spark():
+    """Super Saiyan 2 bioelectricity: a thin, sharply kinked spark with a little fork."""
+    img = canvas()
+    d = ImageDraw.Draw(img)
+    pts = [(40, 150), (95, 120), (110, 165), (160, 100), (175, 140), (225, 90)]
+    line(d, pts, 3.5)
+    line(d, [(110, 165), (135, 205), (150, 190)], 2)
+    a = np.asarray(img, np.float32) / 255
+    halo = np.asarray(img.filter(ImageFilter.GaussianBlur(6 * SS)), np.float32) / 255
+    return finish(to_img(np.clip(a + halo * 1.5, 0, 1)))
+
+
+def lb_dust():
+    a = radial(power=1.3, sy=0.38) * (0.45 + 0.55 * noise(S, S, 14, 31)) * (0.7 + 0.3 * noise(S, S, 5, 32))
+    return finish(to_img(np.clip(a * 1.5, 0, 1)).resize((S * SS, S * SS)))
 
 
 def lb_ring():
@@ -199,6 +207,54 @@ def as_bolt():
     a = np.maximum(np.asarray(core, np.float32), np.asarray(halo, np.float32) * 1.6) / 255
     shade = np.asarray(core, np.float32) / 255 * 0.5 + 0.5
     return Image.merge("RGBA", (to_img(shade), to_img(shade), to_img(shade), to_img(np.clip(a, 0, 1))))
+
+
+def as_fork():
+    """A branching lightning bolt bursting from the centre to the edge, so rotated copies radiate out."""
+    rng = random.Random(47)
+    img = canvas()
+    d = ImageDraw.Draw(img)
+
+    def bolt(start, angle, length, width, depth):
+        pts = [start]
+        x, y = start
+        steps = 8
+        for i in range(steps):
+            a2 = angle + rng.uniform(-0.7, 0.7)
+            x += math.cos(a2) * length / steps
+            y += math.sin(a2) * length / steps
+            pts.append((x, y))
+            if depth > 0 and 1 <= i <= 6 and rng.random() < 0.55:
+                bolt((x, y), angle + rng.choice((-1, 1)) * rng.uniform(0.4, 1.0), length * rng.uniform(0.35, 0.55), width * 0.6, depth - 1)
+        line(d, pts, width)
+
+    bolt((128, 128), 0.0, 124, 6, 3)
+    a = np.asarray(img, np.float32) / 255
+    halo = np.asarray(img.filter(ImageFilter.GaussianBlur(4 * SS)), np.float32) / 255
+    wide = np.asarray(img.filter(ImageFilter.GaussianBlur(12 * SS)), np.float32) / 255
+    shade = to_img(0.55 + 0.45 * a).resize((S * SS, S * SS))
+    return finish(to_img(np.clip(a + halo * 1.8 + wide * 1.2, 0, 1)), shade)
+
+
+def as_plasma():
+    """A crackling field of electric plasma: a soft glow shot through with short jagged filaments."""
+    rng = random.Random(43)
+    img = canvas()
+    d = ImageDraw.Draw(img)
+    for _ in range(26):
+        ang = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(8, 25)
+        x, y = 128 + math.cos(ang) * r, 128 + math.sin(ang) * r
+        pts = [(x, y)]
+        for _ in range(rng.randint(3, 6)):
+            ang += rng.uniform(-0.6, 0.6)
+            step = rng.uniform(10, 22)
+            x, y = x + math.cos(ang) * step, y + math.sin(ang) * step
+            pts.append((x, y))
+        line(d, pts, rng.uniform(1.2, 2.4), rng.randint(140, 255))
+    fil = np.asarray(img.resize((S, S), Image.LANCZOS), np.float32) / 255
+    a = radial(power=1.8) * 0.6 + fil * np.clip(1.15 - radial(power=1, sx=0.5) * 0 - 0, 0, 1) * radial(power=0.6)
+    return finish(to_img(np.clip(a, 0, 1)).resize((S * SS, S * SS)))
 
 
 def as_spark():
@@ -546,9 +602,9 @@ def ss_flare():
 
 TEXTURES = {
     "Glow": glow,
-    "LB_Trail": lb_trail, "LB_Streak": lb_streak, "LB_Chevron": lb_chevron, "LB_Ring": lb_ring, "LB_Flare": lb_flare,
+    "LB_Aura": lb_aura, "LB_Ember": lb_ember, "LB_Spark": lb_spark, "LB_Dust": lb_dust, "LB_Ring": lb_ring, "LB_Flare": lb_flare,
     "VC_Flame": vc_flame, "VC_Tendril": vc_tendril, "VC_Drip": vc_drip,
-    "AS_Bolt": as_bolt, "AS_Spark": as_spark, "AS_Static": as_static,
+    "AS_Bolt": as_bolt, "AS_Fork": as_fork, "AS_Plasma": as_plasma, "AS_Spark": as_spark, "AS_Static": as_static,
     "FC_Shard": fc_shard, "FC_Flake": fc_flake, "FC_Glint": fc_glint, "FC_Wind": fc_wind,
     "VB_Petal": vb_petal, "VB_Leaf": vb_leaf, "VB_Ripple": vb_ripple, "VB_SpiritFlame": vb_spiritflame, "VB_Flower": vb_flower,
     "UV_Scribble": uv_scribble, "UV_Glitch": uv_glitch, "UV_Star": uv_star, "UV_Static": uv_static,

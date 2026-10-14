@@ -24,9 +24,9 @@ local EterniumAuras = {}
 -- Any left empty fall back to a built-in Roblox texture so the aura still works before upload.
 EterniumAuras.Textures = {
 	Glow = "",
-	LB_Trail = "", LB_Streak = "", LB_Chevron = "", LB_Ring = "", LB_Flare = "",
+	LB_Aura = "", LB_Ember = "", LB_Spark = "", LB_Dust = "", LB_Ring = "", LB_Flare = "",
 	VC_Flame = "", VC_Tendril = "", VC_Drip = "",
-	AS_Bolt = "", AS_Spark = "", AS_Static = "",
+	AS_Bolt = "", AS_Fork = "", AS_Plasma = "", AS_Spark = "", AS_Static = "",
 	FC_Shard = "", FC_Flake = "", FC_Glint = "", FC_Wind = "",
 	VB_Petal = "", VB_Leaf = "", VB_Ripple = "", VB_SpiritFlame = "", VB_Flower = "",
 	UV_Scribble = "", UV_Glitch = "", UV_Star = "", UV_Static = "",
@@ -43,8 +43,8 @@ local BUILTIN = {
 }
 -- what each texture falls back to until it is uploaded ("" = plain, which suits beams and trails)
 local FALLBACK = {
-	Glow = BUILTIN.smoke, LB_Streak = BUILTIN.spark, LB_Chevron = BUILTIN.spark, LB_Ring = BUILTIN.spark, LB_Flare = BUILTIN.spark,
-	VC_Flame = BUILTIN.fire, VC_Drip = BUILTIN.spark, AS_Spark = BUILTIN.spark, AS_Static = BUILTIN.spark,
+	Glow = BUILTIN.smoke, LB_Aura = BUILTIN.fire, LB_Ember = BUILTIN.spark, LB_Spark = BUILTIN.spark, LB_Dust = BUILTIN.smoke, LB_Ring = BUILTIN.spark, LB_Flare = BUILTIN.spark,
+	VC_Flame = BUILTIN.fire, VC_Drip = BUILTIN.spark, AS_Fork = BUILTIN.spark, AS_Plasma = BUILTIN.smoke, AS_Spark = BUILTIN.spark, AS_Static = BUILTIN.spark,
 	FC_Shard = BUILTIN.spark, FC_Flake = BUILTIN.spark, FC_Glint = BUILTIN.spark,
 	VB_Petal = BUILTIN.spark, VB_Leaf = BUILTIN.spark, VB_Ripple = BUILTIN.spark, VB_SpiritFlame = BUILTIN.fire, VB_Flower = BUILTIN.spark,
 	UV_Glitch = BUILTIN.spark, UV_Star = BUILTIN.spark, UV_Static = BUILTIN.spark,
@@ -71,7 +71,7 @@ end
 
 -- Default colours when a player hasn't picked any.
 EterniumAuras.Defaults = {
-	LimitBreaker = { Main = rgb(255, 200, 60), Accent = rgb(255, 240, 170), Glow = rgb(255, 165, 40) },
+	LimitBreaker = { Main = rgb(255, 205, 60), Accent = rgb(170, 220, 255), Glow = rgb(255, 170, 40) },
 	VoidCurrent = { Main = rgb(120, 50, 210), Accent = rgb(200, 160, 255), Glow = rgb(12, 6, 22) },
 	AzureSurge = { Main = rgb(90, 185, 255), Accent = rgb(225, 245, 255), Glow = rgb(40, 120, 255) },
 	FrostCrown = { Main = rgb(185, 230, 255), Accent = rgb(255, 255, 255), Glow = rgb(110, 185, 255) },
@@ -372,64 +372,108 @@ function Aura:Destroy()
 	self.stageOf = {}
 end
 
--- ---------------------------------------------------------------- 1. Limit Breaker: a rising helix of power
--- Signature: ribbons of light spiral up round the body like a drill of energy, chevrons of power rise
--- off the feet, and the light throbs twice a second. Stage 2: twice the ribbons, taller and faster,
--- and pressure rings bursting out along the ground.
+-- ---------------------------------------------------------------- 1. Limit Breaker: a Super Saiyan aura
+-- Signature: a blazing envelope of tall, flickering flame-spikes rising off the whole body, white-hot at
+-- the core and widening into an oval round the silhouette, golden embers shooting upwards and dust
+-- kicked up at the feet, the light throbbing. Stage 2 (think Super Saiyan 2): the aura grows taller,
+-- denser and faster, blue-white bioelectric sparks crackle round the body and pressure rings burst
+-- along the ground.
+
+-- aura sources across the body: slot, offset, how big its flames are
+local LB_SOURCES = {
+	{ "Torso", Vector3.new(0, 0.3, 0), 1.25 }, { "Torso", Vector3.new(0, -0.4, 0), 1.2 }, { "Lower", Vector3.zero, 1.1 },
+	{ "Head", Vector3.zero, 1.15 }, { "LeftArm", Vector3.zero, 1 }, { "RightArm", Vector3.zero, 1 },
+	{ "LeftForearm", Vector3.zero, 0.9 }, { "RightForearm", Vector3.zero, 0.9 },
+	{ "LeftLeg", Vector3.zero, 1 }, { "RightLeg", Vector3.zero, 1 },
+	{ "LeftShin", Vector3.zero, 0.9 }, { "RightShin", Vector3.zero, 0.9 },
+}
 
 Designs.LimitBreaker = {
 	build = function(self)
-		self.helix = {}
-		for i = 1, 8 do
-			local a0 = self:attach("Root")
-			local a1 = self:attach("Root")
-			local tr = self:trail(a0, a1, "LB_Trail", {
-				Lifetime = 0.6,
-				LightEmission = 1,
-				MinLength = 0.05,
-				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
-				WidthScale = numbers({ { 0, 1 }, { 1, 0.2 } }),
-			}, "Main", i <= 4 and 0 or 2, { { 0, 0.55 }, { 1, 0 } })
-			table.insert(self.helix, { a0 = a0, a1 = a1, trail = tr, offset = ((i - 1) % 4) / 4 + (i > 4 and 0.125 or 0) })
-			-- spread the ribbons round the body: compensate for the turn each one makes while rising, so they
-			-- wind on separate spirals instead of chasing each other along one
-			local h = self.helix[#self.helix]
-			h.phase = ((i - 1) % 4) * math.pi / 2 + (i > 4 and math.pi / 4 or 0) + h.offset * (5 / 0.75)
-		end
-		for _, slot in EXTREMITIES do
-			self:emitter(self:attach(slot, self:endOf(slot)), "LB_Streak", {
+		self.flames = {}
+		for _, src in LB_SOURCES do
+			local e = self:emitter(self:attach(src[1], src[2]), "LB_Aura", {
 				Orientation = Enum.ParticleOrientation.VelocityParallel,
-				Squash = numbers({ { 0, 2 }, { 1, 2 } }),
-				Size = numbers({ { 0, 0.7 }, { 1, 0.2 } }),
-				Transparency = numbers({ { 0, 0.2 }, { 1, 1 } }),
-				Lifetime = NumberRange.new(0.35, 0.6),
-				Speed = NumberRange.new(7, 11),
-				SpreadAngle = Vector2.new(12, 12),
+				Squash = numbers({ { 0, 1.2 }, { 1, 1.8 } }),
+				Size = numbers({ { 0, 0.7 }, { 0.4, 1.5 }, { 1, 0.5 } }, src[3]),
+				Transparency = numbers({ { 0, 1 }, { 0.12, 0.1 }, { 0.7, 0.35 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.28, 0.42),
+				Speed = NumberRange.new(5, 9),
+				SpreadAngle = Vector2.new(16, 16),
 				EmissionDirection = Enum.NormalId.Top,
+				Rotation = NumberRange.new(0, 0),
 				LightEmission = 1,
-				Rate = 18,
-			}, "Main")
+				Rate = 20,
+			}, "Main", 0, { { 0, 0.65 }, { 0.45, 0.1 }, { 1, -0.1 } })
+			table.insert(self.flames, { emitter = e, scale = src[3] })
 		end
-		self.chevrons = self:emitter(self:attach("Root", Vector3.new(0, -2.6, 0)), "LB_Chevron", {
-			Size = numbers({ { 0, 0.5 }, { 0.5, 0.65 }, { 1, 0 } }),
-			Transparency = numbers({ { 0, 1 }, { 0.15, 0.1 }, { 1, 1 } }),
-			Lifetime = NumberRange.new(0.8, 1.3),
-			Speed = NumberRange.new(4, 7),
-			SpreadAngle = Vector2.new(25, 25),
-			EmissionDirection = Enum.NormalId.Top,
-			Rotation = NumberRange.new(0, 0),
-			LightEmission = 1,
-			Rate = 10,
-		}, "Accent")
+		-- the outer flames that round the aura into its tall oval
+		self.outer = {}
+		for _, x in { -1.25, -0.6, 0.6, 1.25 } do
+			local e = self:emitter(self:attach("Root", Vector3.new(x, -1.6, 0)), "LB_Aura", {
+				Orientation = Enum.ParticleOrientation.VelocityParallel,
+				Squash = numbers({ { 0, 1.5 }, { 1, 2.2 } }),
+				Size = numbers({ { 0, 1.2 }, { 0.5, 2.6 }, { 1, 0.8 } }),
+				Transparency = numbers({ { 0, 1 }, { 0.15, 0.4 }, { 0.75, 0.6 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.38, 0.55),
+				Speed = NumberRange.new(7, 11),
+				SpreadAngle = Vector2.new(8, 8),
+				EmissionDirection = Enum.NormalId.Top,
+				Rotation = NumberRange.new(0, 0),
+				LightEmission = 1,
+				Rate = 9,
+			}, "Main", 0, { { 0, 0.3 }, { 1, -0.15 } })
+			table.insert(self.outer, e)
+		end
 		self:emitter(self:attach("Torso"), "Glow", {
-			Size = numbers({ { 0, 3.5 }, { 1, 4.5 } }),
-			Transparency = numbers({ { 0, 1 }, { 0.3, 0.8 }, { 1, 1 } }),
-			Lifetime = NumberRange.new(0.6, 0.9),
+			Squash = numbers({ { 0, 1 }, { 1, 1 } }),
+			Size = numbers({ { 0, 5.5 }, { 1, 6.5 } }),
+			Transparency = numbers({ { 0, 1 }, { 0.3, 0.78 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.5, 0.8),
 			Speed = NumberRange.new(0, 0),
 			LockedToPart = true,
 			LightEmission = 1,
-			Rate = 6,
+			Rate = 8,
 		}, "Glow")
+		self.embers = {}
+		for _, slot in { "LeftFoot", "RightFoot", "Lower", "LeftHand", "RightHand" } do
+			table.insert(self.embers, self:emitter(self:attach(slot, self:endOf(slot)), "LB_Ember", {
+				Size = numbers({ { 0, 0.22 }, { 1, 0.08 } }),
+				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.5, 0.9),
+				Speed = NumberRange.new(10, 16),
+				SpreadAngle = Vector2.new(22, 22),
+				EmissionDirection = Enum.NormalId.Top,
+				Rotation = NumberRange.new(0, 0),
+				LightEmission = 1,
+				Rate = 6,
+			}, "Main", 0, { { 0, 0.7 }, { 1, 0.2 } }))
+		end
+		self:emitter(self:attach("Root", Vector3.new(0, -2.8, 0)), "LB_Dust", {
+			Size = numbers({ { 0, 1 }, { 1, 3.5 } }),
+			Transparency = numbers({ { 0, 1 }, { 0.2, 0.6 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.8, 1.3),
+			Speed = NumberRange.new(4, 7),
+			SpreadAngle = Vector2.new(85, 6),
+			EmissionDirection = Enum.NormalId.Top,
+			Acceleration = Vector3.new(0, 1, 0),
+			RotSpeed = NumberRange.new(-40, 40),
+			Drag = 3,
+			LightEmission = 0,
+			Rate = 7,
+		}, "Glow", 0, { { 0, -0.35 }, { 1, -0.55 } })
+		-- Stage 2: bioelectric sparks crackling round the body
+		for _, slot in { "Torso", "Head", "LeftArm", "RightArm", "LeftLeg", "RightLeg", "Lower" } do
+			self:emitter(self:attach(slot), "LB_Spark", {
+				Size = numbers({ { 0, 1.1 }, { 1, 1.3 } }),
+				Transparency = numbers({ { 0, 0 }, { 1, 0.4 } }),
+				Lifetime = NumberRange.new(0.05, 0.1),
+				Speed = NumberRange.new(0, 0),
+				LockedToPart = true,
+				LightEmission = 1,
+				Rate = 9,
+			}, "Accent", 2, { { 0, 0.5 }, { 1, 0.2 } })
+		end
 		self.rings = self:emitter(self:attach("Root", Vector3.new(0, -2.9, 0)), "LB_Ring", {
 			Orientation = Enum.ParticleOrientation.VelocityPerpendicular,
 			Size = numbers({ { 0, 1 }, { 1, 9 } }),
@@ -439,37 +483,37 @@ Designs.LimitBreaker = {
 			EmissionDirection = Enum.NormalId.Top,
 			Rotation = NumberRange.new(0, 0),
 			LightEmission = 1,
-		}, "Accent", 2, nil, true)
+		}, "Main", 2, { { 0, 0.5 }, { 1, 0 } }, true)
 		self.flare = self:emitter(self:attach("Torso"), "LB_Flare", {
-			Size = numbers({ { 0, 1 }, { 0.3, 6 }, { 1, 0 } }),
+			Size = numbers({ { 0, 1 }, { 0.3, 7 }, { 1, 0 } }),
 			Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
 			Lifetime = NumberRange.new(0.35, 0.35),
 			Speed = NumberRange.new(0, 0),
 			LockedToPart = true,
 			LightEmission = 1,
-		}, "Accent", 0, nil, true)
-		self.light = self:light("Torso", "Glow", 14)
+		}, "Main", 0, { { 0, 0.6 }, { 1, 0.3 } }, true)
+		self.light = self:light("Torso", "Glow", 16)
 	end,
 	update = function(self, t)
 		local s2 = self.stage == 2
-		local speed = s2 and 1.25 or 1
-		local height = s2 and 7.2 or 6
-		for _, h in self.helix do
-			if self:live(h.trail) then
-				local cycle = (t * 0.75 * speed + h.offset) % 1
-				if cycle < h.last then
-					h.trail:Clear() -- wrapped back to the feet: don't draw a streak down the body
-				end
-				h.last = cycle
-				local radius = 1.6 - 0.6 * cycle
-				local angle = h.phase + t * 5 * speed
-				local y = -2.8 + cycle * height
-				local pos = Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
-				h.a0.Position = pos
-				h.a1.Position = pos + Vector3.new(0, 0.08 + 0.14 * (1 - cycle), 0)
+		if s2 ~= self.wasS2 then
+			-- Stage 2: a taller, denser, faster aura
+			self.wasS2 = s2
+			local k = s2 and 1.2 or 1
+			for _, f in self.flames do
+				f.emitter.Rate = s2 and 30 or 20
+				f.emitter.Speed = NumberRange.new(5 * k * 1.05, 9 * k * 1.05)
+				f.emitter.Size = numbers({ { 0, 0.7 }, { 0.4, 1.5 }, { 1, 0.5 } }, f.scale * k)
+			end
+			for _, e in self.outer do
+				e.Rate = s2 and 14 or 9
+				e.Size = numbers({ { 0, 1.2 }, { 0.5, 2.6 }, { 1, 0.8 } }, k)
+			end
+			for _, e in self.embers do
+				e.Rate = s2 and 10 or 6
 			end
 		end
-		self.light.Brightness = 1.4 + 0.8 * math.sin(t * math.pi * 4)
+		self.light.Brightness = (s2 and 2 or 1.5) + 0.8 * math.sin(t * math.pi * 4)
 		if s2 then
 			self.nextRing = self.nextRing or 0
 			if t >= self.nextRing then
@@ -481,11 +525,6 @@ Designs.LimitBreaker = {
 	ignite = function(self)
 		self.flare:Emit(1)
 		self.rings:Emit(2)
-	end,
-	init = function(self)
-		for _, h in self.helix do
-			h.last = 0
-		end
 	end,
 }
 
@@ -582,10 +621,11 @@ Designs.VoidCurrent = {
 	end,
 }
 
--- ---------------------------------------------------------------- 3. Azure Surge: lightning leaping between the limbs
--- Signature: real arcs jump from limb to limb, re-forming many times a second, over a crackling skin
--- of static. Stage 2: both arms become storm conduits wrapped in continuous lightning, and a ring of
--- static spins above the head.
+-- ---------------------------------------------------------------- 3. Azure Surge: raw electrical power
+-- Signature: branching lightning bursts out of the body in every direction, arcs leap between the limbs,
+-- bolts strike the ground around the feet and a crackling plasma field wraps the body under a hard,
+-- flickering light. Stage 2: both arms become storm conduits wrapped in continuous lightning, twice as
+-- many bolts fly, and a ring of static spins above the head.
 
 Designs.AzureSurge = {
 	build = function(self)
@@ -596,40 +636,93 @@ Designs.AzureSurge = {
 				table.insert(self.nodes, a)
 			end
 		end
+		-- branching bolts flashing out of the body
+		self.forks = {}
+		for _, slot in { "Torso", "Head", "LeftArm", "RightArm", "LeftForearm", "RightForearm", "LeftLeg", "RightLeg", "Lower" } do
+			table.insert(self.forks, self:emitter(self:attach(slot), "AS_Fork", {
+				Size = numbers({ { 0, 3.2 }, { 1, 3.6 } }),
+				Transparency = numbers({ { 0, 0 }, { 1, 0.3 } }),
+				Lifetime = NumberRange.new(0.06, 0.11),
+				Speed = NumberRange.new(0, 0),
+				LockedToPart = true,
+				LightEmission = 1,
+				Rate = 5,
+			}, "Main", 0, { { 0, 0.55 }, { 1, 0.4 } }))
+		end
+		-- arcs leaping limb to limb, and bolts striking out to the ground around the user
 		self.arcs = {}
-		for i = 1, 5 do
-			local a0, a1 = self:attach("Torso"), self:attach("Torso")
-			local b = self:beam(a0, a1, "AS_Bolt", {
-				Width0 = 0.3,
-				Width1 = 0.3,
+		for i = 1, 4 do
+			local b = self:beam(self.nodes[1], self.nodes[2], "AS_Bolt", {
+				Width0 = 0.35,
+				Width1 = 0.35,
 				TextureMode = Enum.TextureMode.Stretch,
 				LightEmission = 1,
-				Transparency = numbers({ { 0, 0 }, { 1, 0 } }),
-			}, "Main", 0, { { 0, 0.5 }, { 1, 0.1 } })
-			table.insert(self.arcs, { beam = b, a0 = a0, a1 = a1, next = 0 })
+			}, "Main", 0, { { 0, 0.55 }, { 1, 0.2 } })
+			table.insert(self.arcs, { beam = b, next = 0 })
+		end
+		self.strikes = {}
+		for i = 1, 6 do
+			local target = self:attach("Root", Vector3.new(0, -3, 2))
+			local b = self:beam(self.nodes[1], target, "AS_Bolt", {
+				Width0 = 0.45,
+				Width1 = 0.2,
+				TextureMode = Enum.TextureMode.Stretch,
+				LightEmission = 1,
+			}, "Main", i <= 3 and 0 or 2, { { 0, 0.6 }, { 1, 0.15 } })
+			local flash = self:emitter(target, "AS_Plasma", {
+				Orientation = Enum.ParticleOrientation.VelocityPerpendicular,
+				Size = numbers({ { 0, 1 }, { 1, 2.6 } }),
+				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.18, 0.18),
+				Speed = NumberRange.new(0.01, 0.01),
+				EmissionDirection = Enum.NormalId.Top,
+				LightEmission = 1,
+			}, "Glow", i <= 3 and 0 or 2, { { 0, 0.5 }, { 1, 0 } }, true)
+			table.insert(self.strikes, { beam = b, target = target, flash = flash, next = i * 0.07 })
 		end
 		for _, part in self:parts({ "LeftArm", "RightArm", "LeftForearm", "RightForearm", "LeftLeg", "RightLeg", "LeftShin", "RightShin", "Torso", "Head" }) do
-			self:emitter(self:attach(part), "AS_Static", {
+			local a = self:attach(part)
+			self:emitter(a, "AS_Plasma", {
+				Size = numbers({ { 0, 2.2 }, { 1, 2.8 } }),
+				Transparency = numbers({ { 0, 0.35 }, { 1, 1 } }),
+				Lifetime = NumberRange.new(0.12, 0.22),
+				Speed = NumberRange.new(0, 0),
+				LockedToPart = true,
+				LightEmission = 1,
+				Rate = 9,
+			}, "Glow", 0, { { 0, 0.3 }, { 1, 0 } })
+			self:emitter(a, "AS_Static", {
 				Size = numbers({ { 0, 0.5 }, { 1, 0.3 } }),
 				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
 				Lifetime = NumberRange.new(0.06, 0.14),
 				Speed = NumberRange.new(0, 0),
 				LockedToPart = true,
 				LightEmission = 1,
-				Rate = 16,
-			}, "Glow", 0, { { 0, 0.3 }, { 1, 0 } })
+				Rate = 12,
+			}, "Accent", 0, { { 0, 0.5 }, { 1, 0.2 } })
 		end
-		self.sparks = {}
+		self:emitter(self:attach("Torso"), "AS_Spark", {
+			Orientation = Enum.ParticleOrientation.VelocityParallel,
+			Size = numbers({ { 0, 0.35 }, { 1, 0.1 } }),
+			Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.25, 0.5),
+			Speed = NumberRange.new(12, 22),
+			SpreadAngle = Vector2.new(180, 180),
+			Acceleration = Vector3.new(0, -30, 0),
+			LightEmission = 1,
+			Rate = 22,
+		}, "Accent")
+		self.bursts = {}
 		for _, slot in { "LeftHand", "RightHand", "Torso", "Head" } do
-			table.insert(self.sparks, self:emitter(self:attach(slot, self:endOf(slot)), "AS_Spark", {
-				Size = numbers({ { 0, 0.4 }, { 0.2, 1.4 }, { 1, 0 } }),
+			table.insert(self.bursts, self:emitter(self:attach(slot, self:endOf(slot)), "AS_Spark", {
+				Size = numbers({ { 0, 0.5 }, { 0.2, 1.8 }, { 1, 0 } }),
 				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
 				Lifetime = NumberRange.new(0.12, 0.2),
 				Speed = NumberRange.new(0, 0),
 				LightEmission = 1,
 			}, "Accent", 0, nil, true))
 		end
-		-- Stage 2: chains of lightning running shoulder -> elbow -> hand on both arms
+		-- Stage 2: lightning running shoulder -> elbow -> hand on both arms
 		self.conduits = {}
 		for _, side in { "Left", "Right" } do
 			local chain = {
@@ -638,16 +731,15 @@ Designs.AzureSurge = {
 				self:attach(side .. "Hand", self:endOf(side .. "Hand")),
 			}
 			for k = 1, 2 do
-				for _, w in { 0.45, 0.22 } do
-					local b = self:beam(chain[k], chain[k + 1], "AS_Bolt", {
+				for _, w in { 0.5, 0.25 } do
+					table.insert(self.conduits, self:beam(chain[k], chain[k + 1], "AS_Bolt", {
 						Width0 = w,
 						Width1 = w,
 						TextureMode = Enum.TextureMode.Wrap,
 						TextureLength = 1.2,
 						TextureSpeed = w > 0.3 and 6 or -9,
 						LightEmission = 1,
-					}, w > 0.3 and "Main" or "Accent", 2, { { 0, 0.4 }, { 1, 0 } })
-					table.insert(self.conduits, b)
+					}, w > 0.3 and "Main" or "Accent", 2, { { 0, 0.5 }, { 1, 0.1 } }))
 				end
 			end
 		end
@@ -655,22 +747,22 @@ Designs.AzureSurge = {
 		for i = 1, 6 do
 			local a = self:attach("Head")
 			self:emitter(a, "AS_Static", {
-				Size = numbers({ { 0, 0.5 }, { 1, 0.2 } }),
+				Size = numbers({ { 0, 0.6 }, { 1, 0.3 } }),
 				Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
 				Lifetime = NumberRange.new(0.1, 0.2),
 				Speed = NumberRange.new(0, 0),
 				LightEmission = 1,
-				Rate = 20,
+				Rate = 22,
 			}, "Accent", 2)
 			table.insert(self.halo, { a = a, phase = i * math.pi / 3 })
 		end
-		self.light = self:light("Torso", "Glow", 14)
+		self.light = self:light("Torso", "Glow", 18)
 	end,
 	update = function(self, t)
+		local s2 = self.stage == 2
+		local n = #self.nodes
 		for _, arc in self.arcs do
 			if t >= arc.next then
-				-- jump to a new pair of limbs, with a new jag pattern
-				local n = #self.nodes
 				local i = math.random(1, n)
 				local j = (i + math.random(1, n - 1) - 1) % n + 1
 				arc.beam.Attachment0 = self.nodes[i]
@@ -678,14 +770,35 @@ Designs.AzureSurge = {
 				arc.beam.TextureOffset = math.random()
 				arc.beam.CurveSize0 = math.random() * 2 - 1
 				arc.beam.CurveSize1 = math.random() * 2 - 1
-				arc.next = t + 0.06 + math.random() * 0.12
-				arc.beam.Enabled = self:live(arc.beam) and math.random() > 0.2
+				arc.next = t + 0.05 + math.random() * 0.1
+				arc.beam.Enabled = self:live(arc.beam) and math.random() > 0.15
 			end
 		end
-		self.nextSpark = self.nextSpark or 0
-		if t >= self.nextSpark then
-			self.sparks[math.random(1, #self.sparks)]:Emit(1)
-			self.nextSpark = t + 0.12 + math.random() * 0.2
+		for _, st in self.strikes do
+			if self:live(st.beam) and t >= st.next then
+				-- a fresh bolt from a random limb to a random spot on the ground nearby
+				local angle = math.random() * math.pi * 2
+				local reach = 2 + math.random() * 2.5
+				st.target.Position = Vector3.new(math.cos(angle) * reach, -2.95, math.sin(angle) * reach)
+				st.beam.Attachment0 = self.nodes[math.random(1, n)]
+				st.beam.TextureOffset = math.random()
+				st.beam.CurveSize0 = math.random() * 1.6 - 0.8
+				st.beam.Enabled = true
+				st.flash:Emit(1)
+				st.off = t + 0.07
+				st.next = t + 0.18 + math.random() * (s2 and 0.25 or 0.45)
+			elseif st.off and t >= st.off then
+				st.beam.Enabled = false
+				st.off = nil
+			end
+		end
+		self.nextBurst = self.nextBurst or 0
+		if t >= self.nextBurst then
+			self.bursts[math.random(1, #self.bursts)]:Emit(1)
+			self.nextBurst = t + 0.1 + math.random() * 0.15
+		end
+		for _, e in self.forks do
+			e.Rate = s2 and 10 or 5
 		end
 		for _, b in self.conduits do
 			if self:live(b) then
@@ -696,11 +809,14 @@ Designs.AzureSurge = {
 			local angle = h.phase + t * 4
 			h.a.Position = Vector3.new(math.cos(angle) * 1, 1.1, math.sin(angle) * 1)
 		end
-		self.light.Brightness = 1 + math.random() * 1.5
+		self.light.Brightness = (s2 and 2 or 1.2) + math.random() * (s2 and 3 or 2)
 	end,
 	ignite = function(self)
-		for _, e in self.sparks do
+		for _, e in self.bursts do
 			e:Emit(2)
+		end
+		for _, st in self.strikes do
+			st.flash:Emit(1)
 		end
 	end,
 }

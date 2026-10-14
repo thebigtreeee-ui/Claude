@@ -16,13 +16,17 @@ The rules every aura follows:
 
 ![Textures](textures/_contact_sheet.png)
 
+Simulated previews (real textures and the module's settings, rendered outside Roblox):
+[Limit Breaker](previews/LimitBreaker.mp4) · [Azure Surge](previews/AzureSurge.mp4).
+Render more with `python tools/preview_aura.py OUT_DIR`.
+
 ## The ten auras
 
 | Aura | Signature (Stage 1) | Stage 2 |
 |---|---|---|
-| **Limit Breaker** (default) | Ribbons of light **spiral up round the body like a drill of energy**. Streaks shoot off the hands and feet, chevrons of power rise from the ground, and the gold light throbs twice a second | Six ribbons instead of three, 20% taller and 25% faster, with **pressure rings bursting out along the ground** |
+| **Limit Breaker** (default) | **A Super Saiyan aura:** a blazing envelope of tall, flickering flame-spikes rising off the whole body, white-hot at the core and widening into an oval round the silhouette. Golden embers shoot upwards, dust kicks up at the feet and the light throbs | **Super Saiyan 2:** the aura grows taller, denser and faster, **blue-white bioelectric sparks** crackle round the body and **pressure rings** burst along the ground |
 | **Void Current** | Dark flames with black edges rise off the limbs while the darkness **drips off the hands and body and pools at the feet** in a slow, rotating whirl | **Shadow tendrils writhe** from the hands down into the pool |
-| **Azure Surge** | **Real arcs leap from limb to limb**, re-forming many times a second, over a crackling skin of static, with spark bursts popping on the hands, chest and head | Both arms become **storm conduits** wrapped in continuous lightning, and a **ring of static spins above the head** |
+| **Azure Surge** | **Raw electrical power:** branching lightning **bursts out of the body in every direction**, arcs leap between the limbs, **bolts strike the ground** around the feet with a flash, and a crackling plasma field wraps the body under a hard, flickering light | Both arms become **storm conduits** wrapped in continuous lightning, **twice as many bolts** fly, and a **ring of static spins above the head** |
 | **Frost Crown** | A **crown of ice crystals hovers and turns above the head**. Cold wind circles the body, ice forms on the limbs and breaks off, snowflakes drift and glints sparkle | A **taller, wider crown** (11 crystals), **crystal pauldrons** on the shoulders and a thicker blizzard |
 | **Verdant Bloom** | Soft **ripples spread from the feet** while **petals spiral up out of them in a slow vortex**, and leaves tumble round the body | **Flowers bloom** on the shoulders and head, and a gentle **spirit flame** rises from the ring of ripples |
 | **Umbral Veil** | Wings of **frantic scribbled shadow** twitch on the back, redrawn many times a second. Static fizzes at the body's edges and stars wink, framing the body without covering it | The shadow **tears**: glitch blocks burst off the body, and the wings jump and split into an offset ghost copy |
