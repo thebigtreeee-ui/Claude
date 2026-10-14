@@ -109,8 +109,26 @@ Every aura gets the same 3.5-second transformation spine, plus its own build-up 
 
 **Everyone else** sees all the effects, but their camera is never touched.
 
+**The character acts it out**, with no animation uploads needed. The module poses the character's own
+joints every frame, on every client, so all players see the same performance:
+
+| Time | What the body does |
+|---|---|
+| 0 – 0.3 s | Snaps into a wide power stance, fists pulled to the hips |
+| 0.3 – 2.6 s | Sinks deeper into a crouch, straining: the head drops, the chest heaves, the body trembles harder and harder |
+| 2.6 – 3 s | Coils inward with arms crunched to the chest and head down |
+| 3 s | Explodes upward into a short hop: arms flung up and back, chest arched, head thrown back in a roar |
+| 3 – 3.5 s | Lands in the powered-up stance, then blends back into the player's own animations |
+
+Radiant Edge raises its sword hand to the sky while the blade forms, and the arm delivers the slash.
+
+It works on R15 and R6. R6 rigs have no knees, so they pose upright without the crouch.
+Supplying your own `EterniumTransform.Animations` switches the procedural performance off and plays
+those instead. The keyframes are plain tables in `EterniumTransform.Performances` if you want to tweak
+them.
+
 Preview of all ten as the transforming player sees them: [Transformations.mp4](previews/Transformations.mp4).
-It's rendered outside Roblox from the module's own frame-by-frame output: real textures, a plain dummy, no animations.
+It's rendered outside Roblox from the module's own frame-by-frame output, with real textures and a plain blocky dummy.
 
 | Aura | Build-up | Finish |
 |---|---|---|

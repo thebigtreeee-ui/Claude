@@ -664,6 +664,198 @@ local function animations(ctx)
 	end)
 end
 
+-- ---------------------------------------------------------------- the body: a procedural performance
+-- The character acts out the transformation by posing its own joints every frame, so it needs no
+-- uploaded animations and every client sees it. It blends in over the player's own animations and
+-- hands back to them afterwards. Supplying Transform.Animations switches this off.
+--
+-- Joint rotations are in each joint's parent space, in degrees: x pitches (+ swings a limb forward,
+-- or tips the torso / head back), y turns, z rolls (+ swings towards the character's right).
+local JOINT_NAMES = {
+	Root = { "Root", "RootJoint" },
+	Waist = { "Waist" },
+	Neck = { "Neck" },
+	LShoulder = { "LeftShoulder", "Left Shoulder" },
+	RShoulder = { "RightShoulder", "Right Shoulder" },
+	LElbow = { "LeftElbow" },
+	RElbow = { "RightElbow" },
+	LHip = { "LeftHip", "Left Hip" },
+	RHip = { "RightHip", "Right Hip" },
+	LKnee = { "LeftKnee" },
+	RKnee = { "RightKnee" },
+	LAnkle = { "LeftAnkle" },
+	RAnkle = { "RightAnkle" },
+}
+
+-- a full-body pose from a few intentions; arms are mirrored unless `right` overrides the right arm
+local function pose(p)
+	local arm = p.arms or { 0, 0, 0 } -- { pitch, roll outwards, elbow }
+	local right = p.right or arm
+	local c, w = p.crouch or 0, p.wide or 0
+	return {
+		crouch = c,
+		lift = p.lift or 0,
+		Root = { p.tilt or 0, 0, 0 },
+		Waist = { p.lean or 0, p.twist or 0, 0 },
+		Neck = { p.head or 0, p.look or 0, 0 },
+		LShoulder = { arm[1], -(arm[4] or 0), -arm[2] },
+		RShoulder = { right[1], right[4] or 0, right[2] },
+		LElbow = { arm[3], 0, 0 },
+		RElbow = { right[3], 0, 0 },
+		LHip = { c, 0, -w },
+		RHip = { c, 0, w },
+		LKnee = { -2 * c, 0, 0 },
+		RKnee = { -2 * c, 0, 0 },
+		LAnkle = { c, 0, w },
+		RAnkle = { c, 0, -w },
+	}
+end
+
+-- the shared performance: power stance, straining crouch, coil, explosive release, powered-up stance
+local function performance(rightArm)
+	local function key(t, p)
+		if rightArm and rightArm[t] then
+			p.right = rightArm[t].arm
+			p.twist = rightArm[t].twist or p.twist
+		end
+		return { t = t, pose = pose(p) }
+	end
+	return {
+		key(0, {}),
+		key(0.3, { crouch = 22, wide = 10, lean = -8, head = -6, arms = { -12, 18, 70 } }),
+		key(1.4, { crouch = 30, wide = 12, lean = -13, head = -14, arms = { -18, 25, 88 } }),
+		key(2.55, { crouch = 36, wide = 12, lean = -18, head = -22, arms = { -22, 30, 98 } }),
+		key(2.92, { crouch = 42, wide = 12, lean = -27, head = -26, arms = { 58, -28, 122 } }),
+		key(BURST + 0.06, { crouch = 6, wide = 16, lift = 0.9, lean = 18, head = 30, arms = { -32, 120, 12 } }),
+		key(BURST + 0.24, { crouch = 8, wide = 16, lift = 0.6, lean = 14, head = 22, arms = { -26, 108, 16 } }),
+		key(SETTLE, { crouch = 18, wide = 14, lean = -4, head = 0, arms = { -8, 22, 35 } }),
+	}
+end
+
+-- Radiant Edge raises its sword hand to the sky while the blade forms, winds up, and the arm delivers
+-- the slash itself; it ends with the sword held low and forward until it dissolves
+local RADIANT_ARM = {
+	[0.3] = { arm = { 60, 10, 30 } },
+	[1.4] = { arm = { 172, 8, 8 } },
+	[2.55] = { arm = { 176, 6, 6 } },
+	[2.92] = { arm = { 198, 4, 30 }, twist = 14 },
+	[BURST + 0.06] = { arm = { 78, -24, 4 }, twist = -28 },
+	[BURST + 0.24] = { arm = { 76, -22, 6 }, twist = -24 },
+	[SETTLE] = { arm = { 70, -10, 10 }, twist = -8 },
+}
+
+Transform.Performances = { Default = performance(), RadiantEdge = performance(RADIANT_ARM) }
+-- when each aura hands the body back to the player's animations (Radiant Edge holds its sword until
+-- the blade has dissolved)
+Transform.PerformanceRelease = { Default = SETTLE, RadiantEdge = SETTLE + 0.8 }
+
+local function perform(ctx)
+	local motors = {}
+	for _, d in ctx.character:GetDescendants() do
+		if d:IsA("Motor6D") then
+			motors[d.Name] = d
+		end
+	end
+	local joints = {}
+	for key, names in JOINT_NAMES do
+		for _, name in names do
+			if motors[name] then
+				joints[key] = motors[name]
+				break
+			end
+		end
+	end
+	if not joints.Root and not joints.Waist and not joints.RShoulder then
+		return
+	end
+	-- crouching lowers the body by however far bent legs shorten; rigs without knees just pose upright
+	local legs = 0
+	local upper, lower = ctx.character:FindFirstChild("RightUpperLeg"), ctx.character:FindFirstChild("RightLowerLeg")
+	if joints.RKnee and upper and lower then
+		legs = upper.Size.Y * 0.85 + lower.Size.Y
+	end
+	local keys = Transform.Performances[ctx.name] or Transform.Performances.Default
+	local release = Transform.PerformanceRelease[ctx.name] or Transform.PerformanceRelease.Default
+	local written = {}
+
+	local function sample(t)
+		local i = 1
+		while i < #keys and keys[i + 1].t <= t do
+			i += 1
+		end
+		local a, b = keys[i], keys[math.min(i + 1, #keys)]
+		local k = (b.t > a.t) and easeInOut(clamp01((t - a.t) / (b.t - a.t))) or 0
+		return a.pose, b.pose, k
+	end
+
+	local function apply(t)
+		local weight = easeInOut(phase(t, 0, 0.18)) * (1 - easeInOut(phase(t, release, release + 0.55)))
+		if weight <= 0 then
+			return
+		end
+		local pa, pb, k = sample(t)
+		local crouch = pa.crouch + (pb.crouch - pa.crouch) * k
+		if not joints.RKnee then
+			crouch = 0
+		end
+		local lift = pa.lift + (pb.lift - pa.lift) * k
+		local drop = legs * (1 - math.cos(math.rad(crouch)))
+		-- the strain: a tremble that builds through the charge, a jolt at the burst, then breathing
+		local tremble = t < BURST and (0.4 + 2.6 * phase(t, 0.3, BURST) ^ 2) or 4 * math.exp(-(t - BURST) * 9)
+		local breathe = math.sin(t * (t < BURST and 7 or 3.5)) * (t < BURST and 2.5 or 1.5)
+		for name, motor in joints do
+			local ra, rb = pa[name], pb[name]
+			local x, y, z = ra[1] + (rb[1] - ra[1]) * k, ra[2] + (rb[2] - ra[2]) * k, ra[3] + (rb[3] - ra[3]) * k
+			if name == "Root" and crouch == 0 then
+				x = 0
+			elseif (name == "LHip" or name == "RHip" or name == "LKnee" or name == "RKnee" or name == "LAnkle" or name == "RAnkle") and not joints.RKnee then
+				x = 0
+			end
+			if name == "Waist" or name == "Neck" or name == "LShoulder" or name == "RShoulder" then
+				local seed = #name * 1.7
+				x += math.noise(t * 17, seed) * tremble + (name == "Waist" and breathe or 0)
+				z += math.noise(seed, t * 17) * tremble * 0.6
+			end
+			local rot = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+			local frame = motor.C0.Rotation
+			local target = frame:Inverse() * rot * frame
+			if name == "Root" then
+				target = CFrame.new(frame:Inverse() * Vector3.new(0, lift - drop, 0)) * target
+			end
+			-- blend over whatever the player's own animations put there this frame
+			local current = motor.Transform
+			if written[motor] and current == written[motor] then
+				current = CFrame.new()
+			end
+			local result = current:Lerp(target, weight)
+			motor.Transform = result
+			written[motor] = result
+		end
+	end
+
+	ctx.performing = true
+	ctx.performEnd = release + 0.55
+	local okSignal, stepped = pcall(function()
+		return RunService.PreSimulation
+	end)
+	if not okSignal or not stepped then
+		stepped = RunService.Stepped
+	end
+	-- animations are evaluated before this step, so poses written here win for this frame
+	ctx.poseConnection = stepped:Connect(function()
+		if ctx.t <= ctx.performEnd then
+			apply(ctx.t)
+		end
+	end)
+	ctx.resetPose = function()
+		for motor, value in written do
+			if motor.Parent and motor.Transform == value then
+				motor.Transform = CFrame.new()
+			end
+		end
+	end
+end
+
 local function sound(ctx, kind, at)
 	local set = Transform.Sounds[ctx.name]
 	local id = set and set[kind]
@@ -1249,7 +1441,7 @@ Signatures.RadiantEdge = function(ctx)
 	if not hand then
 		return
 	end
-	local grip = hand.Name == "Right Arm" and CFrame.new(0, -hand.Size.Y / 2, 0) or CFrame.new()
+	local grip = CFrame.new(0, -hand.Size.Y / 2, 0)
 	local blade = Instance.new("Part")
 	blade.Name = "LightBlade"
 	blade.Material = Enum.Material.Neon
@@ -1301,13 +1493,20 @@ Signatures.RadiantEdge = function(ctx)
 		blade.Size = Vector3.new(0.16 + 0.06 * form, length, 0.05)
 		-- held point-up, then a slash: a fast arc from overhead forward and down across the burst
 		local swing = easeInOut(phase(t, BURST - 0.2, BURST + 0.08))
-		-- at rest the blade angles up, out and slightly forward so it reads clear of the arm; the slash
-		-- sweeps it diagonally across the body to finish pointing forward and low, clear of the ground
-		local pitch = math.rad(-18 - 92 * swing)
-		local sweep = math.rad(55 * swing)
-		weld.C0 = grip * CFrame.Angles(0, sweep, math.rad(-28)) * CFrame.Angles(pitch, 0, 0) * CFrame.new(0, length / 2 + 0.1, 0)
-		base.Position = Vector3.new(0, -length / 2 + 0.6, 0)
-		tipAtt.Position = Vector3.new(0, length / 2, 0)
+		if ctx.performing then
+			-- the body raises the sword and swings it: the blade simply extends out of the fist
+			weld.C0 = grip * CFrame.new(0, -(length / 2 + 0.05), 0)
+		else
+			-- custom animations: angle the blade up and out so it reads clear of the arm, and sweep it
+			-- diagonally across the body to finish forward and low, clear of the ground
+			local pitch = math.rad(-18 - 92 * swing)
+			local sweep = math.rad(55 * swing)
+			local hold = hand.Name == "Right Arm" and grip or CFrame.new()
+			weld.C0 = hold * CFrame.Angles(0, sweep, math.rad(-28)) * CFrame.Angles(pitch, 0, 0) * CFrame.new(0, length / 2 + 0.1, 0)
+		end
+		local out = ctx.performing and -1 or 1 -- which end of the blade points away from the hand
+		base.Position = Vector3.new(0, -out * (length / 2 - 0.6), 0)
+		tipAtt.Position = Vector3.new(0, out * length / 2, 0)
 		trail.Enabled = swing > 0 and swing < 1
 		local dissolve = phase(t, SETTLE + 0.1, SETTLE + 0.8)
 		blade.Transparency = (form > 0 and 0.05 or 1) + 0.95 * dissolve
@@ -1371,10 +1570,16 @@ function Transform.play(character, auraName, colors, options)
 	Signatures[auraName](ctx)
 	sound(ctx, "Buildup", 0)
 	sound(ctx, "Burst", BURST)
+	local custom = Transform.Animations.Buildup ~= "" or Transform.Animations.Burst ~= "" or Transform.Animations.Stance ~= ""
+	if not custom then
+		perform(ctx)
+	end
 	if ctx.isLocal then
 		cinematic(ctx)
 		freeze(ctx)
-		animations(ctx)
+		if custom then
+			animations(ctx)
+		end
 	end
 	if options.onBurst then
 		ctx:when(BURST, options.onBurst)
@@ -1394,6 +1599,11 @@ function Transform.play(character, auraName, colors, options)
 		if ctx.restoreCamera then
 			ctx.restoreCamera()
 			ctx.restoreCamera = nil
+		end
+		if ctx.poseConnection then
+			ctx.poseConnection:Disconnect()
+			ctx.poseConnection = nil
+			ctx.resetPose()
 		end
 		folder:Destroy()
 		for _, inst in ctx.instances do
