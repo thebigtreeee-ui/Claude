@@ -6,7 +6,7 @@ import bpy
 import bmesh
 from mathutils import Matrix, Vector
 
-from common import collection, glow, mesh_object, rgb, surface
+from common import FPS, collection, glow, mesh_object, rgb, surface
 
 
 def reset():
@@ -33,7 +33,7 @@ def render_settings(width=1280, height=720, samples=32, frames=(1, 840)):
     scn.cycles.caustics_refractive = False
     scn.render.resolution_x, scn.render.resolution_y = width, height
     scn.render.resolution_percentage = 100
-    scn.render.fps = 30
+    scn.render.fps = FPS
     scn.frame_start, scn.frame_end = frames
     scn.render.use_motion_blur = True
     scn.render.motion_blur_shutter = 0.45

@@ -14,8 +14,9 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-W, H = 1280, 720
-FPS = 30
+W, H = 1920, 1080
+FPS = 60
+U = W / 1280  # sizes below were designed at 1280 wide
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
 
 
@@ -41,7 +42,7 @@ def shake_offset(t, cues):
         if t0 <= t <= t0 + dur:
             k = (t - t0) / dur
             amp += a * (1 - k) ** 2 if dur < 1.5 else a  # long cues are a steady rumble
-    px = 22 * amp
+    px = 22 * U * amp
     return noise1(t * 38, 1) * px, noise1(t * 38, 2) * px * 0.8
 
 
@@ -50,6 +51,7 @@ def bloom(img):
     pil = Image.fromarray(np.clip(bright * 255 * 1.3, 0, 255).astype(np.uint8))
     out = np.zeros_like(img)
     for scale, radius, weight in ((4, 3, 0.35), (8, 6, 0.28), (16, 8, 0.22)):
+        scale = int(scale * U)
         small = pil.resize((pil.width // scale, pil.height // scale), Image.BILINEAR).filter(ImageFilter.GaussianBlur(radius))
         out += np.asarray(small.resize(pil.size, Image.BILINEAR), np.float32) / 255 * weight / 1.3
     return img + out
@@ -83,17 +85,17 @@ def speed_lines(img, kind, t, rng_seed):
         cx, cy = W / 2, H / 2
         for _ in range(70):
             a = rng.uniform(0, 2 * math.pi)
-            r0 = rng.uniform(260, 420)
-            r1 = r0 + rng.uniform(250, 600)
+            r0 = rng.uniform(260, 420) * U
+            r1 = r0 + rng.uniform(250, 600) * U
             d.line([(cx + math.cos(a) * r0, cy + math.sin(a) * r0), (cx + math.cos(a) * r1, cy + math.sin(a) * r1)],
-                   fill=int(rng.uniform(90, 200)), width=int(rng.uniform(1, 4)))
+                   fill=int(rng.uniform(90, 200)), width=int(rng.uniform(1, 4) * U))
     else:
         for _ in range(40):
             y = rng.uniform(0, H)
             if abs(y - H * 0.55) < H * 0.2 and rng.random() < 0.7:
                 continue  # keep the action band clearer
-            x0 = rng.uniform(-200, W)
-            d.line([(x0, y), (x0 + rng.uniform(200, 700), y)], fill=int(rng.uniform(70, 170)), width=int(rng.uniform(1, 3)))
+            x0 = rng.uniform(-200 * U, W)
+            d.line([(x0, y), (x0 + rng.uniform(200, 700) * U, y)], fill=int(rng.uniform(70, 170)), width=int(rng.uniform(1, 3) * U))
     a = np.asarray(layer.filter(ImageFilter.GaussianBlur(0.8)), np.float32)[..., None] / 255
     return img * (1 - a * 0.5) + a * 0.85
 
@@ -102,27 +104,27 @@ def logo_card(t, t0, t1):
     """The ETERNIUM title on black, glowing violet-to-cyan, easing in."""
     k = min(1.0, (t - t0) / 0.6)
     k = k * k * (3 - 2 * k)
-    font = ImageFont.truetype(FONT, 118)
+    font = ImageFont.truetype(FONT, int(118 * U))
     text = "ETERNIUM"
-    spacing = 18 + 10 * (1 - k)
+    spacing = (18 + 10 * (1 - k)) * U
     widths = [font.getlength(c) for c in text]
     total = sum(widths) + spacing * (len(text) - 1)
     mask = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(mask)
     x = (W - total) / 2
     for c, w in zip(text, widths):
-        d.text((x, H / 2 - 78), c, font=font, fill=255)
+        d.text((x, H / 2 - 78 * U), c, font=font, fill=255)
         x += w + spacing
     m = np.asarray(mask, np.float32) / 255
-    glow = np.asarray(mask.filter(ImageFilter.GaussianBlur(14)), np.float32) / 255
-    glow2 = np.asarray(mask.filter(ImageFilter.GaussianBlur(40)), np.float32) / 255
+    glow = np.asarray(mask.filter(ImageFilter.GaussianBlur(14 * U)), np.float32) / 255
+    glow2 = np.asarray(mask.filter(ImageFilter.GaussianBlur(40 * U)), np.float32) / 255
     xs = np.linspace(0, 1, W)[None, :, None]
     tint = np.array([0.62, 0.32, 1.0]) * (1 - xs) + np.array([0.24, 0.9, 0.95]) * xs
     img = glow2[..., None] * tint * 0.9 + glow[..., None] * tint * 1.4 + m[..., None] * (0.75 + 0.25 * tint)
     # a thin line under the title
-    y = int(H / 2 + 72)
-    half = int(260 * k)
-    img[y:y + 2, W // 2 - half:W // 2 + half] += tint[0, W // 2 - half:W // 2 + half] * 1.2
+    y = int(H / 2 + 72 * U)
+    half = int(260 * U * k)
+    img[y:y + 3, W // 2 - half:W // 2 + half] += tint[0, W // 2 - half:W // 2 + half] * 1.2
     return np.clip(img * k, 0, 1)
 
 
@@ -138,8 +140,9 @@ def main():
     impacts = {}
     for t0, n in cues["impact"]:
         f0 = 1 + round(t0 * FPS)
-        for k in range(n):
-            impacts[f0 + k] = k
+        per = FPS // 30  # cues count 30 fps frames: keep the same on-screen duration
+        for k in range(n * per):
+            impacts[f0 + k] = k // per
     n_out = 0
     for name in files:
         frame = int(name[1:5])
@@ -148,7 +151,7 @@ def main():
         ow, oh = src_img.size
         cw, ch = round(ow / 1.1), round(oh / 1.1)
         dx, dy = shake_offset(t, cues["shake"])
-        scale = ow / 1408
+        scale = ow / (W * 1.1)
         x0 = (ow - cw) / 2 + dx * scale
         y0 = (oh - ch) / 2 + dy * scale
         x0 = min(max(x0, 0), ow - cw)
@@ -175,7 +178,7 @@ def main():
         n_out += 1
     rate = FPS / step
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(rate), "-i", os.path.join(tmp, "%04d.png"),
-                    "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p", "-r", "30",
+                    "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p", "-r", str(FPS),
                     "-movflags", "+faststart", out], check=True)
     print("wrote", out, n_out, "frames")
 

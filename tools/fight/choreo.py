@@ -18,7 +18,7 @@ import build_element_ultimates as ults
 import fx
 import scene
 from avatar import Fighter
-from common import F, collection, empty, ease, glow, key, key_value, lerp, rgb, visible
+from common import F, FPS, collection, empty, ease, glow, key, key_value, lerp, rgb, visible
 
 VOID_LOOK = dict(skin=rgb(235, 200, 170), shirt=rgb(18, 16, 22), pants=rgb(40, 36, 48), shoes=rgb(14, 12, 16),
                  hair=rgb(20, 18, 26), glow=rgb(150, 70, 255), eye=rgb(190, 120, 255), hair_style="spiky")
@@ -580,7 +580,9 @@ def act_beams(shots, xv, xr):
     rng = random.Random(95)
     f = F(13.5)
     while f <= F(18.75):
-        t = (f - 1) / 30
+        t = (f - 1) / FPS
+        n = (f - 1) * 30 // FPS  # effect spawns are paced in 30 fps steps, whatever the frame rate
+        new_step = (f - 1) * 30 % FPS == 0
         ov = mid(V, t)
         orr = mid(R, t)
         p = P(t)
@@ -607,12 +609,12 @@ def act_beams(shots, xv, xr):
             key(ring_c, f, loc=p, rot=(90 - 25 * math.sin(t * 2.5), -t * 350, 0), interp="LINEAR")
             light.location = p
             light.keyframe_insert("location", frame=f)
-            if f % 2 == 0:
+            if new_step and n % 2 == 0:
                 d = Vector((rng.uniform(-0.3, 0.3), rng.uniform(-1, 1), rng.uniform(-1, 1))).normalized()
-                fx.jag_bolt(t, p + d * 1.2, p + d * rng.uniform(3, 5.5), PURPLE if f % 4 == 0 else CYAN, width=0.06, dur=0.07, seed=f)
-            if f % 5 == 0:
-                fx.sparks(t, p, (0, rng.choice((-1, 1)), 0.5), PURPLE if f % 10 == 0 else CYAN, count=6, speed=12, spread=1.0, dur=0.3, seed=f)
-            if f % 18 == 0:
+                fx.jag_bolt(t, p + d * 1.2, p + d * rng.uniform(3, 5.5), PURPLE if n % 4 == 0 else CYAN, width=0.06, dur=0.07, seed=n)
+            if new_step and n % 5 == 0:
+                fx.sparks(t, p, (0, rng.choice((-1, 1)), 0.5), PURPLE if n % 10 == 0 else CYAN, count=6, speed=12, spread=1.0, dur=0.3, seed=n)
+            if new_step and n % 18 == 0:
                 fx.dust(t, Vector((p.x, 0, 0)), count=5, radius=3, rise=1.5, dur=1.0, size=(0.7, 1.4), seed=f)
         f += 1
     fx.show(void_root, F(13.5), F(18.78))

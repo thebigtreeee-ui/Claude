@@ -8,7 +8,9 @@ import bpy  # noqa: F401  (must be imported before bmesh/mathutils)
 import bmesh
 from mathutils import Euler, Matrix, Vector
 
-FPS = 30
+import os
+
+FPS = int(os.environ.get("ETERNIUM_FPS", "60"))
 
 
 def F(seconds):
