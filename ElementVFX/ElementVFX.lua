@@ -148,6 +148,28 @@ for _, element in { "Fire", "Electric", "Rift", "Void", "Nature", "Ice", "Wind",
 end
 VFX.Sounds.Electric_Strike = ""
 
+-- Optional: a ModuleScript named "ElementVFXAssets" next to this one that returns
+-- { Textures = { name = "rbxassetid://..." }, Sounds = { name = "rbxassetid://..." } } fills in the ids,
+-- so they can live outside this file.
+do
+	local assets = script.Parent and script.Parent:FindFirstChild("ElementVFXAssets")
+	if assets and assets:IsA("ModuleScript") then
+		local ok, ids = pcall(require, assets)
+		if ok and typeof(ids) == "table" then
+			for key, id in ids.Textures or {} do
+				if typeof(id) == "string" and id:match("%d") then -- skip blanks left as "rbxassetid://"
+					VFX.Textures[key] = id
+				end
+			end
+			for key, id in ids.Sounds or {} do
+				if typeof(id) == "string" and id:match("%d") then -- skip blanks left as "rbxassetid://"
+					VFX.Sounds[key] = id
+				end
+			end
+		end
+	end
+end
+
 -- 1 = full effect, 0.5 = lighter (fewer particles, fewer arcs). Picked from the player's graphics level.
 VFX.Quality = nil :: number?
 local function quality(): number

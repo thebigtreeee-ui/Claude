@@ -59,7 +59,7 @@ until its sounds have finished.
 ## Setup
 
 1. **Textures.** Bulk-import every PNG in `textures/` (except `_contact_sheet.png`) with the
-   Asset Manager. Paste each id into `VFX.Textures` at the top of the module.
+   Asset Manager. Paste each id into `VFX.Textures` at the top of the module, or into the `ElementVFXAssets` template (see `IMPORT_GUIDE.md`).
    - The `*4` and `*8` sheets are flipbooks: 4×4 and 8×8 grids. The module sets up the grid itself.
    - Until the ids are in, built-in Roblox textures stand in, without the animation.
 2. **Meshes.** Import every `.obj` in `meshes/` with the 3D Importer.
