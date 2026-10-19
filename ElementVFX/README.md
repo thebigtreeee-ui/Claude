@@ -15,6 +15,9 @@ Every colour comes from three picks, so everything is recolourable:
 - **Accent:** the hot core and highlights.
 - **Glow:** the rims and the light it casts.
 
+Preview of all six effects: [previews/ElementVFX_FireElectric.mp4](previews/ElementVFX_FireElectric.mp4).
+It's rendered outside Roblox from the module's own frame-by-frame output, with the real textures, meshes and flipbooks.
+
 **Status:** Fire and Electric are done, for your approval. The other eight elements will be built the
 same way once you're happy with the style.
 

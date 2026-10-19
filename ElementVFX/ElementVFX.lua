@@ -746,8 +746,8 @@ function Fire.ultimate(fx, at: CFrame)
 		Lifetime = NumberRange.new(0.6, 1.0), Speed = NumberRange.new(40 * S, 60 * S), SpreadAngle = Vector2.new(22, 22),
 		EmissionDirection = Enum.NormalId.Front, Rate = 0,
 	})
-	local cone = fx:mesh("FlameCone", c.Main, aim, Vector3.new(0.01, 0.01, 0.01), 0.35)
-	local coneInner = fx:mesh("FlameCone", c.Accent, aim, Vector3.new(0.01, 0.01, 0.01), 0.3)
+	local cone = nil :: BasePart?
+	local coneInner = fx:mesh("FlameCone", c.Main, aim, Vector3.new(0.01, 0.01, 0.01), 0.55)
 	local streams = {}
 	local mouthA = fx:attach(mouth)
 	for k = 1, 4 do
@@ -795,9 +795,9 @@ function Fire.ultimate(fx, at: CFrame)
 			rescale(cone, Vector3.new(w, w, math.max(L, 0.01)))
 		end
 		if coneInner then
-			coneInner.CFrame = aim * CFrame.new(0, 0, -L * 0.36) * CFrame.Angles(0, 0, -t * 6)
-			local w = 6 * S * burst
-			rescale(coneInner, Vector3.new(w, w, math.max(L * 0.72, 0.01)))
+			coneInner.CFrame = aim * CFrame.new(0, 0, -L * 0.28) * CFrame.Angles(0, 0, -t * 6)
+			local w = 4.5 * S * burst
+			rescale(coneInner, Vector3.new(w, w, math.max(L * 0.55, 0.01)))
 		end
 		for _, st in streams do
 			local a = st.a + t * 1.5
@@ -873,14 +873,14 @@ function Electric.beam(fx, origin, target: Vector3)
 	local a0 = fx:attach(s.startPart)
 	local a1 = fx:attach(s.endPart)
 	local cores = {
-		fx:beam(a0, a1, "E_Plasma", { Color = ColorSequence.new(c.Accent), TextureSpeed = 5, TextureLength = 8, ZOffset = 0.3 }),
-		fx:beam(a0, a1, "E_Plasma", { Color = colors({ { 0, c.Main }, { 1, c.Glow } }), TextureSpeed = -3, TextureLength = 12, ZOffset = 0.1, Transparency = NumberSequence.new(0.25) }),
+		fx:beam(a0, a1, "E_Plasma", { Color = ColorSequence.new(c.Accent), TextureSpeed = 5, TextureLength = 8, ZOffset = 0.3, Transparency = NumberSequence.new(0.2) }),
+		fx:beam(a0, a1, "E_Plasma", { Color = colors({ { 0, c.Main }, { 1, c.Glow } }), TextureSpeed = -3, TextureLength = 12, ZOffset = 0.1, LightEmission = 0.3, Transparency = NumberSequence.new(0.1) }),
 	}
 	local bolts = {}
 	for i = 1, 4 do
 		table.insert(bolts, fx:beam(a0, a1, BOLTS[(i - 1) % 3 + 1], {
-			Color = i <= 2 and ColorSequence.new(c.Accent) or colors({ { 0, c.Accent }, { 1, c.Main } }),
-			TextureSpeed = 0, TextureLength = 8, ZOffset = 0.2,
+			Color = i == 1 and colors({ { 0, c.Accent }, { 1, c.Main } }) or colors({ { 0, c.Main }, { 1, c.Glow } }),
+			LightEmission = i == 1 and 1 or 0.6, TextureSpeed = 0, TextureLength = 8, ZOffset = 0.2,
 		}))
 	end
 	local rings = {}
@@ -889,7 +889,7 @@ function Electric.beam(fx, origin, target: Vector3)
 		table.insert(rings, { m = m, u = (i - 1) / 5, spin = fx.rng:NextNumber(-12, 12) })
 	end
 	local sparks = fx:emitter(s.spine, "E_Spark4", {
-		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(1.6 * W, 3.2 * W),
+		Color = colors({ { 0, c.Main }, { 1, c.Glow } }), Size = NumberRange.new(1.6 * W, 3.2 * W),
 		Lifetime = NumberRange.new(0.08, 0.14), Speed = NumberRange.new(0, 1), Rotation = NumberRange.new(0, 360),
 		Flipbook = { mode = "Random", fps = 30 }, Rate = 45,
 	})
@@ -913,8 +913,8 @@ function Electric.beam(fx, origin, target: Vector3)
 		local len = s.len * grow
 		local flicker = (math.floor(t * 40) % 3 == 0) and 0.55 or 1
 		for i, b in cores do
-			b.Width0 = (i == 1 and 0.9 or 1.8) * W * fade * flicker
-			b.Width1 = (i == 1 and 1.0 or 2.0) * W * fade * flicker
+			b.Width0 = (i == 1 and 0.5 or 2.2) * W * fade * flicker
+			b.Width1 = (i == 1 and 0.6 or 2.5) * W * fade * flicker
 		end
 		if t >= nextJitter then
 			-- the bolts re-strike: new shapes, new curves, new widths
@@ -944,7 +944,7 @@ function Electric.beam(fx, origin, target: Vector3)
 			local u = fx.rng:NextNumber(0.05, 0.95)
 			local pa = s:at(u)
 			local out = (s.cf * CFrame.Angles(0, 0, fx.rng:NextNumber(0, 6.28))).UpVector
-			fx:arc(pa, pa + out * fx.rng:NextNumber(2, 5) * W + s.cf.LookVector * fx.rng:NextNumber(-2, 2), 1.2 * W, colors({ { 0, c.Accent }, { 1, c.Main } }), 0.09)
+			fx:arc(pa, pa + out * fx.rng:NextNumber(2, 5) * W + s.cf.LookVector * fx.rng:NextNumber(-2, 2), 1.2 * W, colors({ { 0, c.Main }, { 1, c.Glow } }), 0.09)
 		end
 		local on = t < D
 		sparks.Enabled, muzzle.Enabled, muzzleSpark.Enabled = on, on, on
@@ -988,8 +988,9 @@ function Electric.blast(fx, origin, target: Vector3)
 	local look = CFrame.lookAt(from, target)
 	local ball = fx:holder(look)
 	local core = fx:mesh("Orb", c.Accent, look, Vector3.new(1, 1, 1) * W, 0)
+	local shell = fx:mesh("Orb", c.Main, look, Vector3.new(1, 1, 1) * W, 0.55)
 	local orb = fx:emitter(ball, "E_Orb4", {
-		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(3.4 * W, 3.8 * W), LockedToPart = true,
+		Color = colors({ { 0, c.Main }, { 1, c.Glow } }), Size = NumberRange.new(5.2 * W, 5.8 * W), LockedToPart = true, LightEmission = 0.7,
 		Lifetime = NumberRange.new(0.08, 0.08), Speed = NumberRange.new(0, 0), Rotation = NumberRange.new(0, 360),
 		Flipbook = { mode = "Loop", fps = 30 }, Rate = 40,
 	})
@@ -1022,8 +1023,13 @@ function Electric.blast(fx, origin, target: Vector3)
 			ball.CFrame = look.Rotation + pos
 			if core then
 				core.CFrame = ball.CFrame
-				local s2 = W * (1.1 + 0.15 * math.sin(t * 50))
+				local s2 = W * (1.5 + 0.2 * math.sin(t * 50))
 				rescale(core, Vector3.new(s2, s2, s2))
+			end
+			if shell then
+				shell.CFrame = ball.CFrame
+				local s3 = W * (2.6 + 0.3 * math.sin(t * 37))
+				rescale(shell, Vector3.new(s3, s3, s3))
 			end
 			light.Brightness = (math.floor(t * 40) % 3 == 0) and 1.5 or 4
 			if t >= nextArc then
@@ -1036,6 +1042,9 @@ function Electric.blast(fx, origin, target: Vector3)
 				orb.Enabled, trail.Enabled = false, false
 				if core then
 					core:Destroy()
+				end
+				if shell then
+					shell:Destroy()
 				end
 				Electric.discharge(fx, target, W)
 				if o.onHit then
@@ -1052,8 +1061,12 @@ end
 function Electric.discharge(fx, at: Vector3, W: number)
 	local c = fx.c
 	fx:puff(at, "E_Arc8", 1, {
-		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(14 * W, 14 * W),
+		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(16 * W, 16 * W),
 		Lifetime = NumberRange.new(0.4, 0.4), Speed = NumberRange.new(0, 0), Flipbook = { mode = "OneShot", fps = 160 },
+	})
+	fx:puff(at, "E_Orb4", 1, {
+		Color = colors({ { 0, c.Accent }, { 1, c.Glow } }), Size = numbers({ { 0, 4 * W }, { 1, 9 * W } }), Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
+		Lifetime = NumberRange.new(0.25, 0.25), Speed = NumberRange.new(0, 0), Flipbook = { mode = "Loop", fps = 30 },
 	})
 	fx:puff(at, "E_Spark4", 16, {
 		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(2 * W, 4 * W), Rotation = NumberRange.new(0, 360),
