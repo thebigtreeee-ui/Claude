@@ -46,20 +46,20 @@ def shake_offset(t, cues):
 
 
 def bloom(img):
-    bright = np.clip(img - 0.62, 0, None)
+    bright = np.clip(img - 0.8, 0, None)
     pil = Image.fromarray(np.clip(bright * 255 * 1.3, 0, 255).astype(np.uint8))
     out = np.zeros_like(img)
-    for scale, radius, weight in ((4, 3, 0.55), (8, 6, 0.45), (16, 8, 0.35)):
+    for scale, radius, weight in ((4, 3, 0.35), (8, 6, 0.28), (16, 8, 0.22)):
         small = pil.resize((pil.width // scale, pil.height // scale), Image.BILINEAR).filter(ImageFilter.GaussianBlur(radius))
         out += np.asarray(small.resize(pil.size, Image.BILINEAR), np.float32) / 255 * weight / 1.3
     return img + out
 
 
 def grade(img, vig):
-    img = img * 1.32  # exposure lift: the render is graded dark on purpose for the glow to read
+    img = img * 1.12  # exposure lift: the render is graded dark on purpose for the glow to read
     lum = img @ np.array([0.299, 0.587, 0.114], np.float32)
     img = lum[..., None] + (img - lum[..., None]) * 1.12  # a touch more saturation
-    img = img / (1 + img * 0.35) * 1.3  # soft shoulder so the glows roll off instead of clipping
+    img = img / (1 + img * 0.45) * 1.4  # soft shoulder so the glows roll off instead of clipping
     img = np.clip(img, 0, 1)
     img = img * img * (3 - 2 * img) * 0.35 + img * 0.65  # gentle S-curve
     return img * vig

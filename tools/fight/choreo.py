@@ -787,7 +787,7 @@ def act_finale(shots, xv):
     V.trim_glow(25.0, 4)
     V.trim_glow(26.6, 1.5)
     fx.dust(25.0, Vector((xv - 6, 0, 0)), count=10, radius=8, rise=1.0, dur=2.5, size=(1.5, 3.0), seed=131)
-    shots.add(25.0, [(25.0, (xv + 7.5, -4.2, 2.0), (xv - 12, 0, 3.0), 30), (END, (xv + 6.2, -3.6, 2.2), (xv - 12, 0, 3.2), 32)])
+    shots.add(25.0, [(25.0, (xv + 13, -7.0, 2.6), (xv - 12, 0, 3.0), 28), (END, (xv + 11.5, -6.2, 2.7), (xv - 12, 0, 3.2), 30)])
     POST["fade"].append([26.5, 26.95])
     POST["logo"] = [26.95, END]
 

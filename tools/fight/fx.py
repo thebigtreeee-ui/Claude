@@ -97,7 +97,7 @@ def flash(t, pos, color, size=2.0, dur=0.25, light=2000, soft=2.5):
 
 
 def shockwave(t, pos, color, r0=0.5, r1=10.0, dur=0.5, normal=(0, 0, 1), thick=0.12, strength=12):
-    mat = glow("ShockMat", color, strength=strength)
+    mat = glow("ShockMat", color, strength=strength * 0.5)  # below clipping, so the ring keeps its colour
     o = mesh_object("Shock", _disc_ring(0.86, 1.0), fx_col(), mat)
     o.rotation_mode = "QUATERNION"
     o.rotation_quaternion = Vector(normal).to_track_quat("Z", "Y")
