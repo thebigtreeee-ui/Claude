@@ -487,7 +487,7 @@ def wave(cols=40, rows=16):
     idx = []
     for i in range(rows + 1):
         t = i / rows
-        ang = t * math.pi * 1.15
+        ang = t * math.pi * 0.85
         y = math.sin(ang) * 0.5 + t * 0.5
         z = -(1 - math.cos(ang)) * 0.35
         row = []

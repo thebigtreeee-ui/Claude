@@ -986,7 +986,7 @@ def ki_burst(n=8, px=128):
         ring = 1 - np.abs(r - ring_r) / (0.03 * (1 - u) + 0.01)
         rays = (np.cos(ang * 12) > 0.93) * np.clip(1 - r / (0.46 * (0.4 + 0.6 * u)), 0, 1) * (1 - u)
         f = np.maximum.reduce([sphere * (1 - u * 0.7), ring, rays * 2])
-        lum, a = toon(f, [0.0, 0.6, 1.3], [0.6, 0.85, 1.0], soft=0.06)
+        lum, a = toon(f, [0.1, 0.6, 1.3], [0.6, 0.85, 1.0], soft=0.06)
         a = a * (1 - smooth(np.array(u), 0.7, 1.0))
         frames.append(rgba(lum, a, (px, px)))
     return grid(frames, n)

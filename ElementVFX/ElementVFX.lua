@@ -1836,8 +1836,8 @@ function Void.beam(fx, origin, target: Vector3)
 	local s, a0, a1, D, W = beamBase(fx, origin, target, 1.4)
 	local dark = tone(c.Smoke, -0.3)
 	local halo = fx:beam(a0, a1, "V_Stream", {
-		Color = colors({ { 0, c.Accent }, { 0.2, c.Main }, { 1, c.Glow } }), TextureSpeed = 2, TextureLength = 10,
-		Transparency = NumberSequence.new(0.45), ZOffset = -0.1,
+		Color = ColorSequence.new(c.Glow), TextureSpeed = 2, TextureLength = 10, LightEmission = 0.6,
+		Transparency = NumberSequence.new(0.78), ZOffset = -0.1,
 	})
 	local body = fx:beam(a0, a1, "V_Stream", { Color = colors({ { 0, c.Main }, { 1, c.Glow } }), TextureSpeed = -3, TextureLength = 7, LightEmission = 0, ZOffset = 0.1 })
 	local core = fx:beam(a0, a1, "V_Stream", { Color = ColorSequence.new(dark), TextureSpeed = 4.5, TextureLength = 5, LightEmission = 0, ZOffset = 0.2 })
@@ -1882,7 +1882,7 @@ function Void.beam(fx, origin, target: Vector3)
 		local len = s.len * grow
 		local mid = s.cf * CFrame.new(0, 0, -len / 2)
 		local wob = 1 + 0.08 * math.sin(t * 13)
-		halo.Width0, halo.Width1 = 3.2 * W * fade, 4.4 * W * fade * wob
+		halo.Width0, halo.Width1 = 3.4 * W * fade, 4.2 * W * fade * wob
 		body.Width0, body.Width1 = 2.2 * W * fade, 3.0 * W * fade
 		core.Width0, core.Width1 = 0.9 * W * fade, 1.2 * W * fade
 		if tendril then
@@ -1995,7 +1995,7 @@ function Void.collapse(fx, at: Vector3, W: number)
 	local c = fx.c
 	local dark = tone(c.Smoke, -0.3)
 	local hole = fx:mesh("Orb", dark, CFrame.new(at), Vector3.new(0.01, 0.01, 0.01), 0)
-	local rim = fx:mesh("Orb", c.Glow, CFrame.new(at), Vector3.new(0.01, 0.01, 0.01), 0.75)
+	local rim = fx:mesh("Orb", c.Glow, CFrame.new(at), Vector3.new(0.01, 0.01, 0.01), 0.9)
 	local disk = fx:mesh("Disk", c.Main, CFrame.new(at), Vector3.new(0.01, 1, 0.01), 0.1)
 	fx:puff(at, "V_Swirl8", 1, {
 		Color = colors({ { 0, c.Main }, { 1, c.Glow } }), Size = numbers({ { 0, 12 * W }, { 1, 5 * W } }), Transparency = NumberSequence.new(0.4),
@@ -2065,7 +2065,6 @@ function Void.ultimate(fx, at: CFrame)
 	local hub = fx:holder(centre)
 	fx:sound("Ultimate", hub)
 	local core = fx:mesh("Orb", dark, centre, Vector3.new(0.01, 0.01, 0.01), 0)
-	local rim = fx:mesh("Orb", c.Glow, centre, Vector3.new(0.01, 0.01, 0.01), 0.8)
 	local disk = fx:mesh("Disk", c.Main, tilt, Vector3.new(0.01, 1, 0.01), 0.05)
 	local disk2 = fx:mesh("Disk", c.Accent, tilt, Vector3.new(0.01, 1, 0.01), 0.2)
 	local photon = fx:mesh("Ring", c.Accent, tilt, Vector3.new(0.01, 1, 0.01), 0)
@@ -2092,8 +2091,8 @@ function Void.ultimate(fx, at: CFrame)
 	local T1 = 6.8
 	fx:when(6.9, function()
 		fx:puff(cp, "X_Glow", 1, {
-			Color = ColorSequence.new(c.Accent), Size = numbers({ { 0, 24 * S }, { 1, 50 * S } }), Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
-			Lifetime = NumberRange.new(0.4, 0.4), Speed = NumberRange.new(0, 0),
+			Color = ColorSequence.new(c.Main), Size = numbers({ { 0, 14 * S }, { 1, 30 * S } }), Transparency = numbers({ { 0, 0.3 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.35, 0.35), Speed = NumberRange.new(0, 0),
 		})
 		fx:puff(cp, "V_Swirl8", 1, {
 			Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = numbers({ { 0, 10 * S }, { 1, 40 * S } }), Lifetime = NumberRange.new(0.6, 0.6),
@@ -2108,11 +2107,11 @@ function Void.ultimate(fx, at: CFrame)
 			Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = numbers({ { 0, 1.2 * S }, { 1, 0 } }), Lifetime = NumberRange.new(0.6, 1.1),
 			Speed = NumberRange.new(30 * S, 60 * S), SpreadAngle = Vector2.new(180, 180), Drag = 3,
 		})
-		fx:pulse("Ring", c.Accent, tilt, Vector3.new(2, 1, 2) * S, Vector3.new(60, 1, 60) * S, 0.7)
-		fx:pulse("Ring", c.Main, centre * CFrame.Angles(math.pi / 2, 0, 0), Vector3.new(2, 1, 2) * S, Vector3.new(44, 1, 44) * S, 0.6)
+		fx:pulse("Ring", c.Main, tilt, Vector3.new(2, 1, 2) * S, Vector3.new(60, 1, 60) * S, 0.7, 0.35)
+		fx:pulse("Ring", c.Glow, centre * CFrame.Angles(math.pi / 2, 0, 0), Vector3.new(2, 1, 2) * S, Vector3.new(44, 1, 44) * S, 0.6, 0.4)
 		fx:pulse("Spikes", c.Accent, centre, Vector3.new(2, 2, 2) * S, Vector3.new(22, 22, 22) * S, 0.3)
 		fx:pulse("RingJag", c.Main, at * CFrame.new(0, 0.2, -(o.distance or 16) * S), Vector3.new(2, 1, 2) * S, Vector3.new(50, 1, 50) * S, 0.8)
-		fx:flash(cp, c.Accent, 80, 15, 1.0)
+		fx:flash(cp, c.Main, 80, 10, 1.0)
 	end)
 	fx:every(function(t, dt)
 		local form = easeOut(phase(t, 0.3, 1.2))
@@ -2122,10 +2121,6 @@ function Void.ultimate(fx, at: CFrame)
 		if core then
 			local r = 6 * S * k * throb
 			rescale(core, Vector3.new(r, r, r))
-		end
-		if rim then
-			local r = 6.9 * S * k * throb
-			rescale(rim, Vector3.new(r, r, r))
 		end
 		if disk then
 			disk.CFrame = tilt * CFrame.Angles(0, t * 2.2, 0)
@@ -2185,10 +2180,10 @@ function Nature.beam(fx, origin, target: Vector3)
 	local core = fx:beam(a0, a1, "N_Stream", { Color = ColorSequence.new(c.Accent), TextureSpeed = 4, TextureLength = 6, ZOffset = 0.3 })
 	local body = fx:beam(a0, a1, "N_Stream", {
 		Color = colors({ { 0, c.Accent }, { 0.15, c.Main }, { 1, c.Glow } }), TextureSpeed = 2.5, TextureLength = 9,
-		LightEmission = 0.35, ZOffset = 0.1, Transparency = NumberSequence.new(0.05),
+		LightEmission = 0.1, ZOffset = 0.1,
 	})
 	local vine = fx:mesh("SpiralThin", c.Glow, s.cf, Vector3.new(1, 1, 1), 0.05)
-	local vine2 = fx:mesh("Spiral", c.Main, s.cf, Vector3.new(1, 1, 1), 0.3)
+	local vine2 = fx:mesh("Spiral", tone(c.Glow, -0.2), s.cf, Vector3.new(1, 1, 1), 0.2)
 	local leaves = fx:emitter(s.spine, "N_Leaf4", {
 		Color = colors({ { 0, c.Main }, { 1, c.Glow } }), LightEmission = 0.3, Size = NumberRange.new(0.9 * W, 1.5 * W),
 		Lifetime = NumberRange.new(0.5, 0.9), Speed = NumberRange.new(2, 6), SpreadAngle = Vector2.new(180, 180), Drag = 2,
@@ -2223,17 +2218,17 @@ function Nature.beam(fx, origin, target: Vector3)
 		s:update(grow)
 		local len = s.len * grow
 		local mid = s.cf * CFrame.new(0, 0, -len / 2)
-		core.Width0, core.Width1 = 0.6 * W * fade, 0.7 * W * fade
-		body.Width0 = 2.0 * W * fade
-		body.Width1 = (2.6 + 0.3 * math.sin(t * 8)) * W * fade
+		core.Width0, core.Width1 = 0.4 * W * fade, 0.5 * W * fade
+		body.Width0 = 1.8 * W * fade
+		body.Width1 = (2.3 + 0.3 * math.sin(t * 8)) * W * fade
 		body.CurveSize0, body.CurveSize1 = math.sin(t * 5) * 0.5, math.cos(t * 4) * 0.6
 		if vine then
 			vine.CFrame = mid * CFrame.Angles(0, 0, t * 4)
-			rescale(vine, Vector3.new(3 * W * fade, 3 * W * fade, len))
+			rescale(vine, Vector3.new(2.4 * W * fade, 2.4 * W * fade, len))
 		end
 		if vine2 then
 			vine2.CFrame = mid * CFrame.Angles(0, 0, -t * 3)
-			rescale(vine2, Vector3.new(3.8 * W * fade, 3.8 * W * fade, len))
+			rescale(vine2, Vector3.new(3.0 * W * fade, 3.0 * W * fade, len))
 		end
 		local open = easeOut(phase(t, 0, 0.3)) * fade
 		for k, m in petalsAtHand do
@@ -2403,9 +2398,9 @@ function Nature.ultimate(fx, at: CFrame)
 		local base = at * CFrame.new(math.cos(a) * r, 0, math.sin(a) * r) * CFrame.Angles(0, fx.rng:NextNumber(0, 6.28), 0)
 		local tree = {
 			base = base, t0 = 0.6 + (k - 1) * 0.18, h = fx.rng:NextNumber(7, 9) * S,
-			trunk = fx:mesh("Trunk", c.Glow, base, Vector3.new(0.01, 0.01, 0.01), 0.05),
-			canopy = fx:mesh("Canopy", c.Main, base, Vector3.new(0.01, 0.01, 0.01), 0.3),
-			inner = fx:mesh("Canopy", c.Accent, base, Vector3.new(0.01, 0.01, 0.01), 0.15),
+			trunk = fx:mesh("Trunk", tone(c.Glow, -0.25), base, Vector3.new(0.01, 0.01, 0.01), 0),
+			canopy = fx:mesh("Canopy", tone(c.Main, -0.3), base, Vector3.new(0.01, 0.01, 0.01), 0.1),
+			inner = fx:mesh("Canopy", c.Glow, base, Vector3.new(0.01, 0.01, 0.01), 0.15),
 		}
 		local top = fx:holder(base * CFrame.new(0, tree.h, 0), Vector3.new(5, 2, 5) * S)
 		tree.top = top
@@ -2473,9 +2468,9 @@ function Nature.ultimate(fx, at: CFrame)
 		for i, tree in trees do
 			local g = easeOut(phase(t, tree.t0, tree.t0 + 1.0))
 			local h = tree.h * g * (1 - 0.4 * dissolve)
-			rooted(tree.trunk, tree.base, 3 * S * (1 - 0.4 * dissolve), h, 3 * S * (1 - 0.4 * dissolve))
+			rooted(tree.trunk, tree.base, 4.5 * S * (1 - 0.4 * dissolve), h, 4.5 * S * (1 - 0.4 * dissolve))
 			if tree.trunk then
-				tree.trunk.Transparency = 0.05 + 0.95 * dissolve
+				tree.trunk.Transparency = dissolve
 			end
 			local cg = backOut(phase(t, tree.t0 + 0.7, tree.t0 + 1.2)) * (1 - 0.5 * dissolve)
 			local cs = 6.5 * S * math.max(cg, 0.001) * (cg > 0.9 and breath or 1)
@@ -2483,7 +2478,7 @@ function Nature.ultimate(fx, at: CFrame)
 			if tree.canopy then
 				tree.canopy.CFrame = cpos
 				rescale(tree.canopy, Vector3.new(cs, cs * 0.8, cs))
-				tree.canopy.Transparency = 0.3 + 0.7 * dissolve
+				tree.canopy.Transparency = 0.1 + 0.9 * dissolve
 			end
 			if tree.inner then
 				tree.inner.CFrame = cpos * CFrame.Angles(0, 1, 0)
@@ -2532,7 +2527,7 @@ function Ice.beam(fx, origin, target: Vector3)
 	})
 	local crown = {}
 	for k = 1, 6 do
-		table.insert(crown, fx:mesh("Crystal" .. (k % 3 + 1), k % 2 == 0 and c.Main or c.Accent, s.cf, Vector3.new(0.01, 0.01, 0.01), 0.1))
+		table.insert(crown, fx:mesh("Crystal" .. (k % 3 + 1), k % 2 == 0 and c.Main or c.Glow, s.cf, Vector3.new(0.01, 0.01, 0.01), 0.1))
 	end
 	local hitLight = fx:light(s.endPart, c.Main, 20)
 	local beamLight = fx:light(s.spine, c.Main, 14)
@@ -2578,7 +2573,7 @@ function Ice.beam(fx, origin, target: Vector3)
 			local out = (s.cf * CFrame.Angles(0, 0, a)).UpVector
 			local p = s:at(u) + out * 0.6 * W
 			local cf = alongY(CFrame.lookAt(p, p + out + s.cf.LookVector * fx.rng:NextNumber(0.2, 0.9)))
-			local m = fx:mesh("Crystal" .. fx.rng:NextInteger(1, 3), fx.rng:NextNumber() < 0.6 and c.Main or c.Accent, cf, Vector3.new(0.01, 0.01, 0.01), 0.15)
+			local m = fx:mesh("Crystal" .. fx.rng:NextInteger(1, 3), fx.rng:NextNumber() < 0.6 and c.Main or c.Glow, cf, Vector3.new(0.01, 0.01, 0.01), 0.15)
 			if m then
 				table.insert(grown, { m = m, cf = cf, born = t, len = fx.rng:NextNumber(1.5, 3.5) * W })
 			end
@@ -2593,7 +2588,7 @@ function Ice.beam(fx, origin, target: Vector3)
 			hitLight.Brightness = 3 + 0.6 * math.sin(t * 14)
 			if not cluster then
 				cluster = true
-				fx:crystals(s.tip, 7, 4.5 * W, 1.2 * W, c.Main, c.Accent, D - t, 1.0)
+				fx:crystals(s.tip, 7, 4.5 * W, 1.2 * W, c.Main, c.Glow, D - t, 1.0)
 			end
 			if t >= nextFrost then
 				nextFrost = t + 0.2
@@ -2674,7 +2669,7 @@ function Ice.shatter(fx, at: Vector3, W: number)
 		Speed = NumberRange.new(6, 14), SpreadAngle = Vector2.new(180, 180), Drag = 3, Rotation = NumberRange.new(0, 360),
 	})
 	fx:debris({ "Shard1", "Shard2" }, c.Accent, at, 8, 24, 1.4 * W, 0.9)
-	fx:crystals(at, 6, 4 * W, 1.1 * W, c.Main, c.Accent, 0.9)
+	fx:crystals(at, 6, 4 * W, 1.1 * W, c.Main, c.Glow, 0.9)
 	fx:pulse("Ring", c.Main, CFrame.new(at), Vector3.new(1, 1, 1) * W, Vector3.new(15, 1, 15) * W, 0.5)
 	fx:flash(at, c.Main, 24, 7, 0.6)
 end
@@ -2695,19 +2690,19 @@ function Ice.ultimate(fx, at: CFrame)
 		Color = shardCol, Size = NumberRange.new(10 * S, 10 * S), Lifetime = NumberRange.new(0.5, 0.5), Speed = NumberRange.new(0, 0),
 		Flipbook = { mode = "OneShot", fps = 128 },
 	})
-	fx:puff(at.Position, "I_Mist4", 10, {
-		Color = ColorSequence.new(c.Smoke), LightEmission = 0.2, Size = numbers({ { 0, 3 * S }, { 1, 7 * S } }), Transparency = numbers({ { 0, 0.3 }, { 1, 1 } }),
+	fx:puff(at.Position, "I_Mist4", 8, {
+		Color = ColorSequence.new(c.Smoke), LightEmission = 0.2, Size = numbers({ { 0, 2 * S }, { 1, 4.5 * S } }), Transparency = numbers({ { 0, 0.5 }, { 1, 1 } }),
 		Lifetime = NumberRange.new(0.8, 1.2), Speed = NumberRange.new(8, 14), SpreadAngle = Vector2.new(80, 5),
 		EmissionDirection = Enum.NormalId.Top, Drag = 3, Rotation = NumberRange.new(0, 360), Flipbook = { mode = "OneShot", fps = 14 },
 	})
-	fx:crystals(at.Position, 5, 2.5 * S, 0.8 * S, c.Main, c.Accent, 1.2, 1.2)
+	fx:crystals(at.Position, 5, 2.5 * S, 0.8 * S, c.Main, c.Glow, 1.2, 1.2)
 	-- the wall
 	local sections = {}
 	for k = 0, 6 do
 		local base = at * CFrame.new((k - 3) * 3.2 * S, 0, -dist) * CFrame.Angles(0, fx.rng:NextNumber(-0.25, 0.25), fx.rng:NextNumber(-0.06, 0.06))
 		local sec = {
 			base = base, t0 = 1.2 + k * 0.2, h = fx.rng:NextNumber(9, 12) * S,
-			m = fx:mesh("Slab" .. (k % 2 + 1), c.Main, base, Vector3.new(0.01, 0.01, 0.01), 0.1),
+			m = fx:mesh("Slab" .. (k % 2 + 1), tone(c.Main, -0.2), base, Vector3.new(0.01, 0.01, 0.01), 0.2),
 		}
 		table.insert(sections, sec)
 		fx:when(sec.t0, function()
@@ -2723,7 +2718,7 @@ function Ice.ultimate(fx, at: CFrame)
 				Flipbook = { mode = "OneShot", fps = 14 },
 			})
 			fx:pulse("Ring", c.Accent, base * CFrame.new(0, 0.15, 0), Vector3.new(1, 1, 1) * S, Vector3.new(8, 1, 8) * S, 0.35)
-			fx:crystals((base * CFrame.new(0, 0, 1.6 * S)).Position, 2, 3.5 * S, 1 * S, c.Main, c.Accent, 5.4 - sec.t0, 0.9)
+			fx:crystals((base * CFrame.new(0, 0, 1.6 * S)).Position, 2, 3.5 * S, 1 * S, c.Main, c.Glow, 5.4 - sec.t0, 0.9)
 		end)
 	end
 	-- frost racing from the stomp to the wall
@@ -2768,8 +2763,8 @@ function Ice.ultimate(fx, at: CFrame)
 				f.m = nil
 			end
 		end
-		fx:pulse("Ring", c.Accent, wallCentre * CFrame.new(0, 0.2, 0), Vector3.new(4, 1, 4) * S, Vector3.new(44, 1, 44) * S, 0.6)
-		fx:flash((wallCentre * CFrame.new(0, 5, 0)).Position, c.Accent, 60, 10, 0.7)
+		fx:pulse("Ring", c.Main, wallCentre * CFrame.new(0, 0.2, 0), Vector3.new(4, 1, 4) * S, Vector3.new(40, 1, 40) * S, 0.6, 0.45)
+		fx:flash((wallCentre * CFrame.new(0, 5, 0)).Position, c.Main, 60, 7, 0.7)
 	end)
 	fx:every(function(t)
 		if t >= nextFrost and t < 1.2 then
@@ -2782,7 +2777,7 @@ function Ice.ultimate(fx, at: CFrame)
 			})
 			local dir = Vector3.new(fx.rng:NextNumber(-0.6, 0.6), 1, fx.rng:NextNumber(-0.6, 0.6)).Unit
 			local cf = alongY(CFrame.lookAt(p, p + dir))
-			local m = fx:mesh("Crystal" .. fx.rng:NextInteger(1, 3), fx.rng:NextNumber() < 0.5 and c.Main or c.Accent, cf, Vector3.new(0.01, 0.01, 0.01), 0.1)
+			local m = fx:mesh("Crystal" .. fx.rng:NextInteger(1, 3), fx.rng:NextNumber() < 0.5 and c.Main or c.Glow, cf, Vector3.new(0.01, 0.01, 0.01), 0.1)
 			if m then
 				table.insert(frostLine, { m = m, cf = cf, born = t, len = fx.rng:NextNumber(1.2, 2.6) * S })
 			end
@@ -2799,7 +2794,7 @@ function Ice.ultimate(fx, at: CFrame)
 				local k = backOut(phase(t, sec.t0, sec.t0 + 0.25))
 				local shimmer = t > 2.6 and 0.06 * math.sin(t * 5 + sec.t0 * 9) or 0
 				rooted(sec.m, sec.base, 3.6 * S, sec.h * math.max(k, 0.001), 2.2 * S)
-				sec.m.Transparency = 0.1 + shimmer
+				sec.m.Transparency = 0.2 + shimmer
 			end
 		end
 		local cold = t >= 2.0 and t < 5.4
@@ -2929,7 +2924,7 @@ function Wind.blast(fx, origin, target: Vector3)
 	})
 	local light = fx:light(p.ball, c.Main, 12, 1.5)
 	p.go(function(t, cf, grow)
-		local roll = CFrame.Angles(0, 0, math.sin(t * 6) * 0.15)
+		local roll = CFrame.Angles(0, 0, 0.9 + math.sin(t * 6) * 0.15)
 		if blade then
 			blade.CFrame = cf * roll
 			rescale(blade, Vector3.new(7, 1, 3.5) * W * grow)
@@ -2998,20 +2993,20 @@ function Wind.ultimate(fx, at: CFrame)
 			Flipbook = { mode = "OneShot", fps = 32 },
 		})
 		-- the pressure shells
-		fx:pulse("Orb", c.Accent, hands, Vector3.new(1, 1, 1) * S, Vector3.new(26, 26, 26) * S, 0.5, 0.75)
+		fx:pulse("Orb", c.Glow, hands, Vector3.new(1, 1, 1) * S, Vector3.new(24, 24, 24) * S, 0.45, 0.9)
 		fx:when(0.23, function()
-			fx:pulse("Orb", c.Main, hands, Vector3.new(2, 2, 2) * S, Vector3.new(40, 40, 40) * S, 0.8, 0.85)
+			fx:pulse("Orb", c.Glow, hands, Vector3.new(2, 2, 2) * S, Vector3.new(38, 38, 38) * S, 0.7, 0.94)
 		end)
 		-- rings of compressed air blasting forward
 		for k = 0, 3 do
 			fx:when(0.15 + 0.03 * k, function()
 				fx:pulse("Ring", k % 2 == 0 and c.Accent or c.Main, hands * CFrame.new(0, 0, -(3 + k * 5) * S) * CFrame.Angles(math.pi / 2, 0, 0),
-					Vector3.new(3, 1, 3) * S, Vector3.new(10 + k * 4, 1, 10 + k * 4) * S, 0.45, 0.15)
+					Vector3.new(3, 1, 3) * S, Vector3.new(10 + k * 4, 1, 10 + k * 4) * S, 0.45, 0.35)
 			end)
 		end
 		-- along the ground
-		fx:pulse("RingJag", c.Main, at * CFrame.new(0, 0.15, 0), Vector3.new(1, 1, 1) * S, Vector3.new(46, 1, 46) * S, 0.7)
-		fx:pulse("Ring", c.Accent, at * CFrame.new(0, 0.2, 0), Vector3.new(1, 1, 1) * S, Vector3.new(30, 1, 30) * S, 0.5)
+		fx:pulse("RingJag", c.Glow, at * CFrame.new(0, 0.15, 0), Vector3.new(1, 1, 1) * S, Vector3.new(44, 1, 44) * S, 0.7, 0.45)
+		fx:pulse("Ring", c.Main, at * CFrame.new(0, 0.2, 0), Vector3.new(1, 1, 1) * S, Vector3.new(28, 1, 28) * S, 0.5, 0.4)
 		local n = math.max(6, math.floor(12 * fx.q))
 		for k = 1, n do
 			local a = k / n * math.pi * 2
@@ -3019,7 +3014,7 @@ function Wind.ultimate(fx, at: CFrame)
 			local p = at.Position + out * 2.5 * S + Vector3.new(0, 0.5, 0)
 			local h = fx:holder(CFrame.lookAt(p, p + out))
 			fx:emitter(h, "W_Dust4", {
-				Color = ColorSequence.new(c.Smoke), LightEmission = 0, LightInfluence = 0.6, Size = numbers({ { 0, 3 * S }, { 1, 9 * S } }),
+				Color = ColorSequence.new(c.Smoke), LightEmission = 0, LightInfluence = 0.6, Size = numbers({ { 0, 2 * S }, { 1, 6 * S } }),
 				Transparency = numbers({ { 0, 0.25 }, { 1, 1 } }), Lifetime = NumberRange.new(0.9, 1.3), Speed = NumberRange.new(26 * S, 34 * S),
 				EmissionDirection = Enum.NormalId.Front, SpreadAngle = Vector2.new(12, 6), Drag = 3, Rotation = NumberRange.new(0, 360),
 				Flipbook = { mode = "OneShot", fps = 14 }, Rate = 0,
@@ -3031,7 +3026,7 @@ function Wind.ultimate(fx, at: CFrame)
 			local p = at.Position + out * 3 * S + Vector3.new(0, 1, 0)
 			fx:pulse("Crescent", k % 2 == 0 and c.Main or c.Accent, CFrame.lookAt(p, p + out) * CFrame.new(0, 0, -4 * S), Vector3.new(2, 1, 1) * S, Vector3.new(16, 1, 8) * S, 0.4)
 		end
-		fx:flash(hp, c.Accent, 40, 8, 0.5)
+		fx:flash(hp, c.Glow, 40, 5, 0.5)
 	end)
 	fx:every(function(t)
 		return t > 2.4
@@ -3393,13 +3388,13 @@ local Water = {}
 function Water.beam(fx, origin, target: Vector3)
 	local c = fx.c
 	local s, a0, a1, D, W = beamBase(fx, origin, target, 1.4)
-	local outer = fx:beam(a0, a1, "A_Stream", { Color = ColorSequence.new(c.Glow), TextureSpeed = 2, TextureLength = 12, Transparency = NumberSequence.new(0.55), ZOffset = -0.1 })
+	local outer = fx:beam(a0, a1, "A_Stream", { Color = ColorSequence.new(c.Glow), TextureSpeed = 2, TextureLength = 12, LightEmission = 0.5, Transparency = NumberSequence.new(0.7), ZOffset = -0.1 })
 	local body = fx:beam(a0, a1, "A_Stream", {
-		Color = colors({ { 0, c.Accent }, { 0.15, c.Main }, { 1, c.Glow } }), TextureSpeed = 4, TextureLength = 9, LightEmission = 0.35, ZOffset = 0.1,
+		Color = colors({ { 0, c.Accent }, { 0.1, c.Main }, { 1, c.Glow } }), TextureSpeed = 4, TextureLength = 9, LightEmission = 0.1, ZOffset = 0.1,
 	})
-	local core = fx:beam(a0, a1, "A_Stream", { Color = ColorSequence.new(c.Accent), TextureSpeed = 6, TextureLength = 6, ZOffset = 0.3, Transparency = NumberSequence.new(0.1) })
-	local ribbon = fx:mesh("Spiral", c.Main, s.cf, Vector3.new(1, 1, 1), 0.35)
-	local ribbon2 = fx:mesh("SpiralThin", c.Accent, s.cf, Vector3.new(1, 1, 1), 0.25)
+	local core = fx:beam(a0, a1, "A_Stream", { Color = ColorSequence.new(c.Accent), TextureSpeed = 6, TextureLength = 6, ZOffset = 0.3, Transparency = NumberSequence.new(0.2) })
+	local ribbon = fx:mesh("Spiral", c.Glow, s.cf, Vector3.new(1, 1, 1), 0.3)
+	local ribbon2 = fx:mesh("SpiralThin", c.Main, s.cf, Vector3.new(1, 1, 1), 0.3)
 	local spray = fx:emitter(s.spine, "A_Drop", {
 		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), LightEmission = 0.5, Size = NumberRange.new(0.4 * W, 0.8 * W),
 		Lifetime = NumberRange.new(0.4, 0.8), Speed = NumberRange.new(4, 10), SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, -35, 0), Rate = 40,
@@ -3425,14 +3420,14 @@ function Water.beam(fx, origin, target: Vector3)
 		local surge = 1 + 0.1 * math.sin(t * 16)
 		outer.Width0, outer.Width1 = 3.0 * W * fade, 3.8 * W * fade * surge
 		body.Width0, body.Width1 = 2.0 * W * fade, 2.6 * W * fade * surge
-		core.Width0, core.Width1 = 0.8 * W * fade, 1.0 * W * fade
+		core.Width0, core.Width1 = 0.5 * W * fade, 0.6 * W * fade
 		if ribbon then
 			ribbon.CFrame = mid * CFrame.Angles(0, 0, t * 8)
-			rescale(ribbon, Vector3.new(3.4 * W * fade, 3.4 * W * fade, len))
+			rescale(ribbon, Vector3.new(2.8 * W * fade, 2.8 * W * fade, len))
 		end
 		if ribbon2 then
 			ribbon2.CFrame = mid * CFrame.Angles(0, 0, -t * 12)
-			rescale(ribbon2, Vector3.new(2.6 * W * fade, 2.6 * W * fade, len))
+			rescale(ribbon2, Vector3.new(2.2 * W * fade, 2.2 * W * fade, len))
 		end
 		local on = t < D
 		spray.Enabled, foam.Enabled, muzzle.Enabled = on, on, on
@@ -3645,13 +3640,13 @@ local Energy = {}
 function Energy.beam(fx, origin, target: Vector3)
 	local c = fx.c
 	local s, a0, a1, D, W = beamBase(fx, origin, target, 1.3)
-	local halo = fx:beam(a0, a1, "K_Stream", { Color = ColorSequence.new(c.Glow), TextureSpeed = 3, TextureLength = 10, Transparency = NumberSequence.new(0.55), ZOffset = -0.1 })
-	local body = fx:beam(a0, a1, "K_Stream", { Color = colors({ { 0, c.Accent }, { 0.1, c.Main }, { 1, c.Glow } }), TextureSpeed = 5, TextureLength = 8, LightEmission = 0.6, ZOffset = 0.1 })
+	local halo = fx:beam(a0, a1, "K_Stream", { Color = ColorSequence.new(c.Glow), TextureSpeed = 3, TextureLength = 10, LightEmission = 0.6, Transparency = NumberSequence.new(0.65), ZOffset = -0.1 })
+	local body = fx:beam(a0, a1, "K_Stream", { Color = colors({ { 0, c.Accent }, { 0.08, c.Main }, { 1, c.Glow } }), TextureSpeed = 5, TextureLength = 8, LightEmission = 0.25, ZOffset = 0.1 })
 	local core = fx:beam(a0, a1, "K_Stream", { Color = ColorSequence.new(c.Accent), TextureSpeed = 7, TextureLength = 6, ZOffset = 0.3 })
-	local spiral = fx:mesh("SpiralThin", c.Accent, s.cf, Vector3.new(1, 1, 1), 0.3)
-	local spiral2 = fx:mesh("Spiral", c.Main, s.cf, Vector3.new(1, 1, 1), 0.45)
+	local spiral = fx:mesh("SpiralThin", c.Main, s.cf, Vector3.new(1, 1, 1), 0.3)
+	local spiral2 = fx:mesh("Spiral", c.Glow, s.cf, Vector3.new(1, 1, 1), 0.45)
 	local head = fx:mesh("Orb", c.Accent, s.cf, Vector3.new(0.01, 0.01, 0.01), 0)
-	local headShell = fx:mesh("Orb", c.Main, s.cf, Vector3.new(0.01, 0.01, 0.01), 0.55)
+	local headShell = fx:mesh("Orb", c.Main, s.cf, Vector3.new(0.01, 0.01, 0.01), 0.35)
 	local headGlow = fx:emitter(s.endPart, "K_Orb4", {
 		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(8 * W, 9 * W), Lifetime = NumberRange.new(0.12, 0.12),
 		Speed = NumberRange.new(0, 0), Rotation = NumberRange.new(0, 360), LockedToPart = true, Flipbook = { mode = "Loop", fps = 30 }, Rate = 24,
@@ -3677,19 +3672,19 @@ function Energy.beam(fx, origin, target: Vector3)
 		local hum = 1 + 0.05 * math.sin(t * 30)
 		halo.Width0, halo.Width1 = 4.0 * W * fade, 5.2 * W * fade * hum
 		body.Width0, body.Width1 = 2.8 * W * fade, 3.4 * W * fade * hum
-		core.Width0, core.Width1 = 1.2 * W * fade, 1.5 * W * fade
+		core.Width0, core.Width1 = 0.9 * W * fade, 1.1 * W * fade
 		if spiral then
 			spiral.CFrame = mid * CFrame.Angles(0, 0, t * 10)
-			rescale(spiral, Vector3.new(4 * W * fade, 4 * W * fade, len))
+			rescale(spiral, Vector3.new(3.6 * W * fade, 3.6 * W * fade, len))
 		end
 		if spiral2 then
 			spiral2.CFrame = mid * CFrame.Angles(0, 0, -t * 6)
-			rescale(spiral2, Vector3.new(4.8 * W * fade, 4.8 * W * fade, len))
+			rescale(spiral2, Vector3.new(4.2 * W * fade, 4.2 * W * fade, len))
 		end
 		local hs = (grow < 1 and 1 or 0.85) * fade * hum
 		if head then
 			head.CFrame = CFrame.new(s.tip)
-			rescale(head, Vector3.new(4.2, 4.2, 4.2) * W * hs)
+			rescale(head, Vector3.new(3.2, 3.2, 3.2) * W * hs)
 		end
 		if headShell then
 			headShell.CFrame = CFrame.new(s.tip)
@@ -3780,7 +3775,7 @@ function Energy.detonate(fx, at: Vector3, W: number)
 		Color = ColorSequence.new(c.Accent), Size = NumberRange.new(0.8 * W, 1.6 * W), Lifetime = NumberRange.new(0.5, 0.9),
 		Speed = NumberRange.new(12, 26), SpreadAngle = Vector2.new(180, 180), Drag = 4, Rotation = NumberRange.new(0, 360), Flipbook = { mode = "Loop", fps = 30 },
 	})
-	fx:pulse("Dome", c.Accent, CFrame.new(at - Vector3.new(0, 1 * W, 0)), Vector3.new(1, 1, 1) * W, Vector3.new(14, 14, 14) * W, 0.5, 0.3)
+	fx:pulse("Dome", c.Main, CFrame.new(at - Vector3.new(0, 1 * W, 0)), Vector3.new(1, 1, 1) * W, Vector3.new(14, 14, 14) * W, 0.5, 0.35)
 	fx:pulse("Orb", c.Main, CFrame.new(at), Vector3.new(1, 1, 1) * W, Vector3.new(12, 12, 12) * W, 0.35, 0.4)
 	fx:pulse("Ring", c.Main, CFrame.new(at), Vector3.new(1, 1, 1) * W, Vector3.new(18, 1, 18) * W, 0.5)
 	fx:pulse("Spikes", c.Accent, CFrame.new(at) * CFrame.Angles(fx.rng:NextNumber(0, 6), fx.rng:NextNumber(0, 6), 0), Vector3.new(1, 1, 1) * W, Vector3.new(9, 9, 9) * W, 0.22)
@@ -3799,12 +3794,12 @@ function Energy.ultimate(fx, at: CFrame)
 	local bomb = fx:holder(top)
 	fx:sound("Ultimate", bomb)
 	local core = fx:mesh("Orb", c.Accent, top, Vector3.new(0.01, 0.01, 0.01), 0)
-	local shell = fx:mesh("Orb", c.Main, top, Vector3.new(0.01, 0.01, 0.01), 0.35)
-	local aura = fx:mesh("Orb", c.Glow, top, Vector3.new(0.01, 0.01, 0.01), 0.75)
+	local shell = fx:mesh("Orb", c.Main, top, Vector3.new(0.01, 0.01, 0.01), 0.2)
+	local aura = fx:mesh("Orb", c.Glow, top, Vector3.new(0.01, 0.01, 0.01), 0.88)
 	local gyro1 = fx:mesh("Ring", c.Accent, top, Vector3.new(0.01, 1, 0.01), 0.2)
 	local gyro2 = fx:mesh("Ring", c.Main, top, Vector3.new(0.01, 1, 0.01), 0.2)
 	local glow = fx:emitter(bomb, "K_Orb4", {
-		Color = colors({ { 0, c.Accent }, { 1, c.Main } }), Size = NumberRange.new(1, 1), Lifetime = NumberRange.new(0.15, 0.15), Transparency = NumberSequence.new(0.3),
+		Color = colors({ { 0, c.Main }, { 1, c.Glow } }), Size = NumberRange.new(1, 1), Lifetime = NumberRange.new(0.15, 0.15), Transparency = NumberSequence.new(0.55), LightEmission = 0.6,
 		Speed = NumberRange.new(0, 0), Rotation = NumberRange.new(0, 360), LockedToPart = true, Flipbook = { mode = "Loop", fps = 30 }, Rate = 0,
 	})
 	local field = fx:holder(top, Vector3.new(70, 70, 70) * S)
@@ -3823,8 +3818,8 @@ function Energy.ultimate(fx, at: CFrame)
 	local nextStreak = 0.3
 	fx:when(7.0, function()
 		fx:puff(dest + Vector3.new(0, 4, 0), "X_Glow", 1, {
-			Color = ColorSequence.new(c.Accent), Size = numbers({ { 0, 30 * S }, { 1, 60 * S } }), Transparency = numbers({ { 0, 0 }, { 1, 1 } }),
-			Lifetime = NumberRange.new(0.5, 0.5), Speed = NumberRange.new(0, 0),
+			Color = ColorSequence.new(c.Main), Size = numbers({ { 0, 20 * S }, { 1, 44 * S } }), Transparency = numbers({ { 0, 0.3 }, { 1, 1 } }),
+			Lifetime = NumberRange.new(0.45, 0.45), Speed = NumberRange.new(0, 0),
 		})
 		for k = 1, 3 do
 			fx:puff(dest + Vector3.new(fx.rng:NextNumber(-4, 4), 4 + 3 * k, fx.rng:NextNumber(-4, 4)) * S, "K_Burst8", 1, {
@@ -3843,7 +3838,7 @@ function Energy.ultimate(fx, at: CFrame)
 			Color = ColorSequence.new(c.Accent), Size = NumberRange.new(1 * S, 2 * S), Lifetime = NumberRange.new(0.8, 1.4),
 			Speed = NumberRange.new(30 * S, 60 * S), SpreadAngle = Vector2.new(180, 180), Drag = 3, Rotation = NumberRange.new(0, 360), Flipbook = { mode = "Loop", fps = 30 },
 		})
-		fx:pulse("Dome", c.Accent, CFrame.new(dest), Vector3.new(2, 2, 2) * S, Vector3.new(44, 30, 44) * S, 0.9, 0.15)
+		fx:pulse("Dome", c.Main, CFrame.new(dest), Vector3.new(2, 2, 2) * S, Vector3.new(44, 30, 44) * S, 0.9, 0.3)
 		fx:pulse("Dome", c.Main, CFrame.new(dest), Vector3.new(4, 3, 4) * S, Vector3.new(64, 44, 64) * S, 1.6, 0.4)
 		fx:pulse("Spikes", c.Accent, CFrame.new(dest + Vector3.new(0, 4, 0)), Vector3.new(4, 4, 4) * S, Vector3.new(36, 36, 36) * S, 0.3)
 		for k = 0, 2 do
@@ -3851,7 +3846,7 @@ function Energy.ultimate(fx, at: CFrame)
 				fx:pulse(k == 1 and "Ring" or "RingJag", k == 1 and c.Accent or c.Main, CFrame.new(dest + Vector3.new(0, 0.3, 0)), Vector3.new(4, 1, 4) * S, Vector3.new(70 + 10 * k, 1, 70 + 10 * k) * S, 0.9)
 			end)
 		end
-		fx:flash(dest + Vector3.new(0, 6, 0), c.Accent, 90, 16, 1.6)
+		fx:flash(dest + Vector3.new(0, 6, 0), c.Main, 90, 11, 1.6)
 	end)
 	fx:every(function(t)
 		local charge = easeOut(phase(t, 0.3, 6.4)) ^ 0.8
@@ -3867,7 +3862,7 @@ function Energy.ultimate(fx, at: CFrame)
 		local d = alive and r * 2 or 0.001
 		if core then
 			core.CFrame = bomb.CFrame
-			rescale(core, Vector3.new(d, d, d) * 0.62 * hum)
+			rescale(core, Vector3.new(d, d, d) * 0.45 * hum)
 		end
 		if shell then
 			shell.CFrame = bomb.CFrame * CFrame.Angles(t, t * 0.7, 0)
